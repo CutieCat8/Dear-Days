@@ -2,16 +2,17 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { MemoryCard } from "@/components/features/museum/memory-card";
-import { ArrowLeftIcon, SearchIcon } from "@/components/shared/icons";
+import { SearchIcon } from "@/components/shared/icons";
+import { Breadcrumbs } from "@/components/shared/breadcrumbs";
 import { MOOD_LABELS, MOODS } from "@/lib/contracts/constants";
 import { mockMemories, mockRooms } from "@/lib/contracts/fixtures";
 import type { Mood } from "@/lib/contracts/types";
 
 const PAGE_SIZE = 6;
 const SORTS = {
-  memory_date_desc: "ใหม่สุด",
-  memory_date_asc: "เก่าสุด",
-  updated_at_desc: "แก้ไขล่าสุด",
+  memory_date_desc: "Newest",
+  memory_date_asc: "Oldest",
+  updated_at_desc: "Recently edited",
 } as const;
 
 type SortKey = keyof typeof SORTS;
@@ -60,49 +61,47 @@ export default async function GalleryPage({ params, searchParams }: GalleryPageP
 
   return (
     <div>
-      <Link className="inline-flex min-h-11 items-center gap-1.5 text-sm text-[var(--color-muted)] hover:text-[var(--color-green-deep)]" href={`/rooms/${room.id}`}>
-        <ArrowLeftIcon className="size-4" /> {room.name}
-      </Link>
-      <header className="mt-2">
-        <h1 className="font-display text-4xl text-[var(--color-green-deep)] sm:text-5xl">{room.name} / Gallery</h1>
-        <p className="mt-2 text-[var(--color-muted)]">ความทรงจำทั้งหมดในห้องนี้</p>
+      <Breadcrumbs items={[{ label: "My rooms", href: "/" }, { label: room.name, href: `/rooms/${room.id}` }, { label: "Gallery" }]} />
+      <header>
+        <h1 className="title-xl">{room.name} <span className="text-[var(--color-sage-strong)]">/ Gallery</span></h1>
+        <p className="mt-1.5 text-sm text-[var(--color-muted)]">All the memories from this room.</p>
       </header>
 
-      <form action={`/rooms/${room.id}/gallery`} className="mt-6 grid gap-3 md:grid-cols-[1fr_auto_auto_auto]" method="get" role="search">
+      <form action={`/rooms/${room.id}/gallery`} className="mt-5 grid gap-2.5 md:grid-cols-[1fr_auto_auto_auto]" method="get" role="search">
         <div className="relative">
-          <SearchIcon className="pointer-events-none absolute left-3.5 top-1/2 size-5 -translate-y-1/2 text-[var(--color-muted)]" />
-          <input aria-label="ค้นหาจากชื่อหรือข้อความไดอารี่" className="field-input pl-11" defaultValue={q} name="q" placeholder="ค้นหาจากชื่อหรือข้อความไดอารี่" type="search" />
+          <SearchIcon className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[var(--color-muted)]" />
+          <input aria-label="Search by title or diary text" className="field-input pl-9" defaultValue={q} name="q" placeholder="Search by title or diary text…" type="search" />
         </div>
-        <select aria-label="มู้ด" className="field-input md:w-44" defaultValue={moodFilter ?? ""} name="mood">
-          <option value="">มู้ด: ทั้งหมด</option>
+        <select aria-label="Mood" className="field-input md:w-40" defaultValue={moodFilter ?? ""} name="mood">
+          <option value="">Mood: All</option>
           {MOODS.map((value) => <option key={value} value={value}>{MOOD_LABELS[value]}</option>)}
         </select>
-        <select aria-label="เรียงตาม" className="field-input md:w-40" defaultValue={sortKey} name="sort">
+        <select aria-label="Sort by" className="field-input md:w-40" defaultValue={sortKey} name="sort">
           {Object.entries(SORTS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
         </select>
-        <button className="btn btn-primary" type="submit">ค้นหา</button>
+        <button className="btn btn-primary" type="submit">Search</button>
       </form>
 
-      <div className="mt-4 flex items-center justify-between text-sm text-[var(--color-muted)]">
-        <span aria-live="polite">พบ {filtered.length} ความทรงจำ</span>
-        {hasFilters ? <Link className="font-semibold text-[var(--color-green)] hover:underline" href={`/rooms/${room.id}/gallery`}>ล้างตัวกรอง</Link> : null}
+      <div className="mt-3 flex items-center justify-between text-xs text-[var(--color-muted)]">
+        <span aria-live="polite">{filtered.length} {filtered.length === 1 ? "memory" : "memories"}</span>
+        {hasFilters ? <Link className="font-medium text-[var(--color-green)] hover:underline" href={`/rooms/${room.id}/gallery`}>Clear filters</Link> : null}
       </div>
 
       {items.length === 0 ? (
-        <div className="panel mt-6 px-6 py-16 text-center">
-          <h2 className="font-display text-2xl text-[var(--color-green-deep)]">ไม่พบความทรงจำที่ตรงกัน</h2>
-          <p className="mt-2 text-[var(--color-muted)]">ลองเปลี่ยนคำค้นหาหรือล้างตัวกรอง</p>
+        <div className="panel mt-5 px-6 py-14 text-center">
+          <h2 className="title-lg">No matching memories</h2>
+          <p className="mt-1.5 text-sm text-[var(--color-muted)]">Try a different search or clear the filters.</p>
         </div>
       ) : (
-        <div className="mt-6 grid grid-cols-2 gap-4 lg:grid-cols-3">
+        <div className="mt-5 grid grid-cols-2 gap-4 lg:grid-cols-3">
           {items.map((memory) => <MemoryCard key={memory.id} memory={memory} />)}
         </div>
       )}
 
       {totalPages > 1 ? (
-        <nav aria-label="หน้า" className="mt-8 flex justify-center gap-2">
+        <nav aria-label="Pagination" className="mt-7 flex justify-center gap-1.5">
           {Array.from({ length: totalPages }, (_, index) => index + 1).map((target) => (
-            <Link aria-current={target === current ? "page" : undefined} className={`flex size-11 items-center justify-center rounded-full text-sm font-semibold ${target === current ? "bg-[var(--color-green)] text-white" : "text-[var(--color-muted)] hover:bg-[var(--color-sage)]"}`} href={pageHref(target)} key={target}>
+            <Link aria-current={target === current ? "page" : undefined} className={`flex size-9 items-center justify-center rounded-full text-[0.8rem] font-medium ${target === current ? "bg-[var(--color-green)] text-white" : "text-[var(--color-muted)] hover:bg-[var(--color-sage)]"}`} href={pageHref(target)} key={target}>
               {target}
             </Link>
           ))}

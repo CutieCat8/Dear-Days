@@ -87,3 +87,43 @@ export function LeafIcon(props: IconProps) {
 export function BookIcon(props: IconProps) {
   return <IconBase {...props}><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H11v16H6.5A2.5 2.5 0 0 0 4 21.5v-16ZM20 5.5A2.5 2.5 0 0 0 17.5 3H13v16h4.5a2.5 2.5 0 0 1 2.5 2.5v-16Z" stroke="currentColor" strokeLinejoin="round" strokeWidth="1.5" /></IconBase>;
 }
+
+export function UserIcon(props: IconProps) {
+  return <IconBase {...props}><circle cx="12" cy="8" r="3.6" {...stroke} /><path d="M4.5 20c.6-3.8 3.6-6 7.5-6s6.9 2.2 7.5 6" {...stroke} /></IconBase>;
+}
+
+export function TextIcon(props: IconProps) {
+  return <IconBase {...props}><path d="M5 7h14M5 12h14M5 17h9" {...stroke} /></IconBase>;
+}
+
+export function SmileIcon(props: IconProps) {
+  return <IconBase {...props}><circle cx="12" cy="12" r="8.5" {...stroke} /><path d="M8.5 14c.9 1.3 2 2 3.5 2s2.6-.7 3.5-2M9 9.8h.01M15 9.8h.01" {...stroke} /></IconBase>;
+}
+
+export function FrownIcon(props: IconProps) {
+  return <IconBase {...props}><circle cx="12" cy="12" r="8.5" {...stroke} /><path d="M8.5 16c.9-1.3 2-2 3.5-2s2.6.7 3.5 2M9 9.8h.01M15 9.8h.01" {...stroke} /></IconBase>;
+}
+
+export function MehIcon(props: IconProps) {
+  return <IconBase {...props}><circle cx="12" cy="12" r="8.5" {...stroke} /><path d="M8.8 15h6.4M9 9.8h.01M15 9.8h.01" {...stroke} /></IconBase>;
+}
+
+export function SparkleIcon(props: IconProps) {
+  return <IconBase {...props}><path d="M12 4l1.8 5.2L19 11l-5.2 1.8L12 18l-1.8-5.2L5 11l5.2-1.8L12 4ZM19 17v3M17.5 18.5h3" {...stroke} /></IconBase>;
+}
+
+export function InfoIcon(props: IconProps) {
+  return <IconBase {...props}><circle cx="12" cy="12" r="8.5" {...stroke} /><path d="M12 11v5M12 8h.01" {...stroke} /></IconBase>;
+}
+
+export function GripIcon(props: IconProps) {
+  return <IconBase {...props}><path d="M9 6h.01M15 6h.01M9 12h.01M15 12h.01M9 18h.01M15 18h.01" stroke="currentColor" strokeLinecap="round" strokeWidth="2.6" /></IconBase>;
+}
+
+export function TrashIcon(props: IconProps) {
+  return <IconBase {...props}><path d="M4.5 7h15M9.5 7V4.5h5V7M6.5 7l.8 12a1.5 1.5 0 0 0 1.5 1.4h6.4a1.5 1.5 0 0 0 1.5-1.4L17.5 7M10 11v6M14 11v6" {...stroke} /></IconBase>;
+}
+
+export function StarIcon(props: IconProps) {
+  return <IconBase {...props}><path d="m12 4 2.4 5 5.4.7-4 3.8 1 5.4L12 16.2 7.2 18.9l1-5.4-4-3.8 5.4-.7L12 4Z" {...stroke} /></IconBase>;
+}

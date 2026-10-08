@@ -29,8 +29,8 @@ Alias เดิม `--background`, `--foreground`, `--surface`, `--accent`, `--m
 ## Responsive rule ของห้อง
 
 - `< 1024px`: ใช้ memory card grid; 2 คอลัมน์บนโทรศัพท์ตามต้นแบบ และยังอ่าน title/date ได้
-- `>= 1024px`: ใช้ฉาก CSS/SVG isometric พร้อม object links และ information panel
+- `>= 1024px`: ใช้ฉาก 3D (Three.js/R3F, orthographic isometric) พร้อมแผงข้อมูลด้านขวา; คลิกกรอบ/สมุดเพื่อเลือก memory แล้วเปิดจากปุ่ม "Open memory" ในแผง และมีรายการปุ่มสำหรับคีย์บอร์ด/screen reader
 - ห้ามย่อฉาก desktop ลงมือถือ
-- Interactive object/card ต้องเป็น native link, มี focus-visible และไป `/rooms/[roomId]/memories/[memoryId]`
+- Interactive object/card บนมือถือ/Gallery ต้องเป็น native link, มี focus-visible และไป `/rooms/[roomId]/memories/[memoryId]`; ในฉาก 3D desktop การคลิกวัตถุจะเลือก memory (แผงขวา) และเปิดผ่าน native link "Open memory"
 
 Mood ที่อนุญาตมีเพียง `awful`, `stressed`, `sad`, `relaxed`, `happy`, `excited` และ `null`; ไม่ใช้ Calm/Tired จาก visual reference

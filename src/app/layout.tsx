@@ -1,21 +1,20 @@
 import type { Metadata } from "next";
-import { Lora, Noto_Sans_Thai, Noto_Serif_Thai } from "next/font/google";
+import { Fraunces, Inter } from "next/font/google";
 import type { ReactNode } from "react";
 
 import "./globals.css";
 
-const display = Lora({ subsets: ["latin"], variable: "--font-lora", display: "swap" });
-const displayThai = Noto_Serif_Thai({ subsets: ["thai"], variable: "--font-serif-thai", display: "swap" });
-const sans = Noto_Sans_Thai({ subsets: ["thai", "latin"], variable: "--font-noto-sans", display: "swap" });
+const display = Fraunces({ subsets: ["latin"], variable: "--font-fraunces", display: "swap" });
+const sans = Inter({ subsets: ["latin"], variable: "--font-inter", display: "swap" });
 
 export const metadata: Metadata = {
   title: "Dear Days",
-  description: "พื้นที่ส่วนตัวสำหรับเก็บและย้อนดูความทรงจำร่วมกัน",
+  description: "A private space to keep and revisit your little moments, together.",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
   return (
-    <html className={`${display.variable} ${displayThai.variable} ${sans.variable}`} lang="th">
+    <html className={`${display.variable} ${sans.variable}`} lang="en">
       <body>{children}</body>
     </html>
   );

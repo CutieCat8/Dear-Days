@@ -15,7 +15,7 @@
 | `/rooms/new` | สร้างห้อง | สิรวิชญ์ (T7) | ซี T9/T19 |
 | `/rooms/[roomId]/edit` | แก้ห้อง | สิรวิชญ์ (T7) | ซี T9/T19 |
 | `/rooms/join` | เข้าร่วมด้วย invite code | สิรวิชญ์ (T8) | ซี T9/T19 |
-| `/rooms/[roomId]` | ห้องพิพิธภัณฑ์ 2.5D | ซี (T17) | ซี |
+| `/rooms/[roomId]` | ห้องพิพิธภัณฑ์ 3D (Three.js/R3F) | ซี (T17) | ซี |
 | `/rooms/[roomId]/memories/new` | สร้างไดอารี่ | จิรวัฒน์ (T11–T12) | ซี T14–T16, ช่วย T18 |
 | `/rooms/[roomId]/memories/[memoryId]` | อ่านไดอารี่ | จิรวัฒน์ (T13) | ซี T14–T16, ช่วย T18 |
 | `/rooms/[roomId]/memories/[memoryId]/edit` | แก้ไดอารี่ | จิรวัฒน์ (T11–T13) | ซี T14–T16, ช่วย T18 |

@@ -2,10 +2,11 @@ import Link from "next/link";
 
 export default function NotFound() {
   return (
-    <section className="mx-auto max-w-xl py-16 text-center">
-      <h1 className="text-3xl font-semibold">ไม่พบหน้าที่ต้องการ</h1>
-      <p className="mt-3 text-[var(--muted)]">ลิงก์อาจไม่ถูกต้อง หรือคุณอาจไม่มีสิทธิ์เข้าถึงข้อมูลนี้</p>
-      <Link className="mt-6 inline-block underline underline-offset-4" href="/">กลับหน้าหลัก</Link>
+    <section className="mx-auto max-w-md py-20 text-center">
+      <p className="eyebrow">404</p>
+      <h1 className="title-xl mt-2">Page not found</h1>
+      <p className="mt-3 text-sm text-[var(--color-muted)]">The link may be wrong, or you may not have access to this memory.</p>
+      <Link className="btn btn-primary mt-6" href="/">Back to home</Link>
     </section>
   );
 }
