@@ -1,12 +1,12 @@
 export const MOODS = ["awful", "stressed", "sad", "relaxed", "happy", "excited"] as const;
 
 export const MOOD_LABELS = {
-  awful: "แย่",
-  stressed: "เครียด",
-  sad: "เศร้า",
-  relaxed: "ชิลๆ สบายๆ",
-  happy: "แฮปปี้",
-  excited: "ตื่นเต้น",
+  awful: "Awful",
+  stressed: "Stressed",
+  sad: "Sad",
+  relaxed: "Relaxed",
+  happy: "Happy",
+  excited: "Excited",
 } as const satisfies Record<(typeof MOODS)[number], string>;
 
 export const TAG_TYPES = ["person", "place"] as const;

@@ -3,9 +3,9 @@ import type { ReactNode } from "react";
 import type { Room } from "@/lib/contracts/types";
 
 export const THEME_LABELS: Record<Room["theme"], string> = {
-  sunrise: "แสงเช้า",
-  rose: "กุหลาบ",
-  night: "ค่ำคืน",
+  sunrise: "Sunrise",
+  rose: "Rose",
+  night: "Night",
 };
 
 const SKY: Record<Room["theme"], [string, string]> = {

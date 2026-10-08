@@ -4,7 +4,7 @@ import { MEDIA_CONSTRAINTS, MOODS, ROOM_ROLES, ROOM_THEMES, TAG_TYPES } from "./
 
 const idSchema = z.string().uuid();
 const timestampSchema = z.string().datetime({ offset: true });
-const dateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "กรุณาระบุวันที่ในรูปแบบ YYYY-MM-DD");
+const dateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Enter the date as YYYY-MM-DD");
 
 export const moodSchema = z.enum(MOODS);
 export const nullableMoodSchema = moodSchema.nullable();
@@ -67,23 +67,23 @@ export const memorySchema = z.object({
   tags: z.array(tagSchema),
 }).superRefine((memory, context) => {
   if (memory.cover_media_id !== null && !memory.media.some((item) => item.id === memory.cover_media_id)) {
-    context.addIssue({ code: "custom", path: ["cover_media_id"], message: "ภาพปกต้องอยู่ในรายการ media ของบันทึก" });
+    context.addIssue({ code: "custom", path: ["cover_media_id"], message: "The cover photo must belong to this memory's media" });
   }
   if (memory.media.some((item) => item.memory_id !== memory.id)) {
-    context.addIssue({ code: "custom", path: ["media"], message: "media ทุกชิ้นต้องอ้างถึง memory เดียวกัน" });
+    context.addIssue({ code: "custom", path: ["media"], message: "Every media item must reference the same memory" });
   }
   if (memory.tags.some((tag) => tag.room_id !== memory.room_id)) {
-    context.addIssue({ code: "custom", path: ["tags"], message: "tag ทุกตัวต้องอยู่ใน room เดียวกับ memory" });
+    context.addIssue({ code: "custom", path: ["tags"], message: "Every tag must belong to the same room as the memory" });
   }
   const positions = memory.media.map((item) => item.position).sort((a, b) => a - b);
   if (positions.some((position, index) => position !== index)) {
-    context.addIssue({ code: "custom", path: ["media"], message: "position ของ media ต้องต่อเนื่องโดยเริ่มจาก 0" });
+    context.addIssue({ code: "custom", path: ["media"], message: "Media positions must be consecutive, starting at 0" });
   }
 });
 
 export const roomInputSchema = z.object({
-  name: z.string().trim().min(1, "กรุณาระบุชื่อห้อง").max(80),
-  life_period: z.string().trim().min(1, "กรุณาระบุช่วงชีวิต").max(80),
+  name: z.string().trim().min(1, "Please enter a room name").max(80),
+  life_period: z.string().trim().min(1, "Please enter a life period").max(80),
   theme: roomThemeSchema,
 });
 
@@ -120,13 +120,13 @@ export const mediaMutationSchema = z.object({
   const existingIds = plan.existing.map((item) => item.id);
   const addedIds = plan.added.map((item) => item.client_id);
   if (new Set(existingIds).size !== existingIds.length || new Set(addedIds).size !== addedIds.length) {
-    context.addIssue({ code: "custom", path: ["existing"], message: "รายการรูปต้องไม่มี id ซ้ำ" });
+    context.addIssue({ code: "custom", path: ["existing"], message: "Photo ids must be unique" });
   }
   if (new Set(plan.removed_media_ids).size !== plan.removed_media_ids.length) {
-    context.addIssue({ code: "custom", path: ["removed_media_ids"], message: "รายการรูปที่ลบต้องไม่มี id ซ้ำ" });
+    context.addIssue({ code: "custom", path: ["removed_media_ids"], message: "Removed photo ids must be unique" });
   }
   if (plan.removed_media_ids.some((id) => existingIds.includes(id))) {
-    context.addIssue({ code: "custom", path: ["removed_media_ids"], message: "รูปที่ลบต้องไม่อยู่ใน existing" });
+    context.addIssue({ code: "custom", path: ["removed_media_ids"], message: "Removed photos must not appear in existing" });
   }
   const available = new Set([
     ...plan.existing.map((item) => `existing:${item.id}`),
@@ -134,19 +134,19 @@ export const mediaMutationSchema = z.object({
   ]);
   const orderKeys = plan.order.map((item) => item.kind === "existing" ? `existing:${item.id}` : `new:${item.client_id}`);
   if (new Set(orderKeys).size !== orderKeys.length || orderKeys.some((key) => !available.has(key)) || orderKeys.length !== available.size) {
-    context.addIssue({ code: "custom", path: ["order"], message: "order ต้องอ้างถึงรูปที่คงไว้และรูปใหม่อย่างละหนึ่งครั้ง" });
+    context.addIssue({ code: "custom", path: ["order"], message: "Order must reference each kept and new photo exactly once" });
   }
   if (plan.cover) {
     const coverKey = plan.cover.kind === "existing" ? `existing:${plan.cover.id}` : `new:${plan.cover.client_id}`;
     if (!available.has(coverKey)) {
-      context.addIssue({ code: "custom", path: ["cover"], message: "ภาพปกต้องอยู่ในรายการรูปที่บันทึก" });
+      context.addIssue({ code: "custom", path: ["cover"], message: "The cover must be one of the saved photos" });
     }
   }
 });
 
 export const memoryInputSchema = z.object({
-  title: z.string().trim().min(1, "กรุณาระบุชื่อเรื่อง").max(120),
-  body: z.string().trim().min(1, "กรุณาเขียนเรื่องราว").max(10_000),
+  title: z.string().trim().min(1, "Please enter a title").max(120),
+  body: z.string().trim().min(1, "Please write something about this day").max(10_000),
   memory_date: dateSchema,
   mood: nullableMoodSchema,
   period_label: z.string().trim().max(80).nullable(),
@@ -168,7 +168,7 @@ export const memoryListParamsSchema = z.object({
   sort: z.enum(["memory_date_desc", "memory_date_asc", "updated_at_desc"]).default("memory_date_desc"),
 }).refine((params) => !params.date_from || !params.date_to || params.date_from <= params.date_to, {
   path: ["date_to"],
-  message: "date_to ต้องไม่มาก่อน date_from",
+  message: "date_to must not be earlier than date_from",
 });
 
 export const appErrorCodeSchema = z.enum([

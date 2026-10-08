@@ -12,7 +12,7 @@ const MOOD_ICONS: Record<Mood, string> = {
 
 export function MoodBadge({ mood, compact = false }: { mood: Mood | null; compact?: boolean }) {
   if (mood === null) {
-    return <span className="mood-badge" data-mood="none">{compact ? "—" : "ไม่ได้เลือกมู้ด"}</span>;
+    return <span className="mood-badge" data-mood="none">{compact ? "—" : "No mood"}</span>;
   }
 
   return (
