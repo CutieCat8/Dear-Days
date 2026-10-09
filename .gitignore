@@ -17,3 +17,6 @@ yarn-error.log*
 .DS_Store
 *.tsbuildinfo
 .tmp/
+
+# local Claude Code settings
+/.claude/
