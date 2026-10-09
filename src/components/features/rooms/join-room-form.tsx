@@ -9,8 +9,8 @@ import { RoomCover } from "@/components/shared/room-cover";
 
 const CODE_LENGTH = 8;
 
-export function JoinRoomForm() {
-  const [code, setCode] = useState("");
+export function JoinRoomForm({ initialCode = "" }: { initialCode?: string }) {
+  const [code, setCode] = useState(() => initialCode.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, CODE_LENGTH));
   const [error, setError] = useState<string | null>(null);
 
   // TODO(T8/T9): call joinRoom(code) and map ROOM_FULL / INVALID_INVITE_CODE to the message below.
