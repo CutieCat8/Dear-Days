@@ -2,7 +2,7 @@ import Link from "next/link";
 
 import { Breadcrumbs } from "@/components/shared/breadcrumbs";
 import { ArrowRightIcon, LockIcon, PlusIcon, UsersIcon } from "@/components/shared/icons";
-import { RoomCover, THEME_LABELS } from "@/components/shared/room-cover";
+import { DEFAULT_ROOM_COVER_IMAGE, RoomCover, THEME_LABELS } from "@/components/shared/room-cover";
 import { mockMemories, mockRooms } from "@/lib/contracts/fixtures";
 
 // TODO(T6/T19): replace fixtures with listRooms() and real member profiles.
@@ -37,7 +37,7 @@ export default function MyRoomsPage() {
           return (
             <li className="panel flex flex-col overflow-hidden" key={room.id}>
               <Link className="group block" href={`/rooms/${room.id}`}>
-                <RoomCover className="aspect-[16/9]" theme={room.theme}>
+                <RoomCover className="aspect-[16/9]" image={DEFAULT_ROOM_COVER_IMAGE} theme={room.theme}>
                   <span className="absolute right-3 top-3 inline-flex items-center gap-1 rounded-full bg-[var(--color-paper)]/90 px-2.5 py-0.5 text-[0.68rem] font-medium text-[var(--color-green-deep)]">
                     <LockIcon className="size-3" /> Private
                   </span>
