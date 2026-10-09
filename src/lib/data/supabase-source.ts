@@ -4,8 +4,9 @@ import type { Database, Json } from "@/lib/supabase/database.types";
 
 import type { DearDaysDataSource } from "@/lib/contracts/data-functions";
 import { memoryInputSchema, memoryListParamsSchema, profileInputSchema, roomInputSchema, tagInputSchema } from "@/lib/contracts/schemas";
-import type { DataResult, Memory, MemoryInput, MemoryListParams, NewMediaUpload, Paginated, Profile, ProfileInput, Room, RoomInput, RoomMemberView, Tag, TagInput } from "@/lib/contracts/types";
+import type { DataResult, FriendsOverview, Memory, MemoryInput, MemoryListParams, NewMediaUpload, Paginated, Profile, ProfileInput, Room, RoomInput, RoomMemberView, Tag, TagInput } from "@/lib/contracts/types";
 
+import { listFriends, removeFriend, respondFriendRequest, sendFriendRequest } from "./friends";
 import { MEMORY_SELECT, mediaPaths, memoryFromRow, roomFromRow, tagFromRow, type MemoryRow, type RoomRow, type TagRow } from "./mappers";
 import { MEMORY_BUCKET, planMemorySave } from "./memory-payload";
 import { getCurrentProfile, listRoomMembers, updateMyAccount } from "./profile";
@@ -147,6 +148,29 @@ export class SupabaseDataSource implements DearDaysDataSource {
     const { data, error } = await this.client.rpc("remove_room_member", { p_room_id: roomId, p_user_id: userId });
     if (error) return failFrom(error);
     return ok({ user_id: data as string });
+  }
+
+  // -------------------------------------------------------------- friends
+
+  async listFriends(): Promise<DataResult<FriendsOverview>> {
+    const userId = await this.userId();
+    if (!userId) return fail("UNAUTHENTICATED", "Please sign in to continue.");
+    return listFriends(this.client, userId);
+  }
+
+  async sendFriendRequest(username: string): Promise<DataResult<{ friendship_id: string; status: "pending" | "accepted" }>> {
+    if (!(await this.userId())) return fail("UNAUTHENTICATED", "Please sign in to continue.");
+    return sendFriendRequest(this.client, username);
+  }
+
+  async respondFriendRequest(friendshipId: string, accept: boolean): Promise<DataResult<{ friendship_id: string }>> {
+    if (!(await this.userId())) return fail("UNAUTHENTICATED", "Please sign in to continue.");
+    return respondFriendRequest(this.client, friendshipId, accept);
+  }
+
+  async removeFriend(friendshipId: string): Promise<DataResult<{ friendship_id: string }>> {
+    if (!(await this.userId())) return fail("UNAUTHENTICATED", "Please sign in to continue.");
+    return removeFriend(this.client, friendshipId);
   }
 
   // -------------------------------------------------------------- memories

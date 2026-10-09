@@ -56,6 +56,35 @@ export const roomMemberViewSchema = z.object({
   joined_at: timestampSchema,
 });
 
+// Public handle used to find friends: a-z 0-9 . _ (3..30), starts and ends with a letter or digit.
+// Input is normalised: spaces and a leading "@" are dropped, letters lowercased.
+export const usernameSchema = z.string().trim().toLowerCase().transform((value) => value.replace(/^@+/, ""))
+  .pipe(z.string().regex(/^[a-z0-9][a-z0-9._]{1,28}[a-z0-9]$/, "Use 3–30 letters, numbers, dots or underscores"));
+
+const friendPersonShape = {
+  friendship_id: idSchema,
+  user_id: idSchema,
+  display_name: displayNameSchema,
+  username: z.string().min(3).max(30),
+  avatar_url: z.string().min(1).nullable(),
+};
+
+// Someone the viewer is friends with (public profile data only, never e-mail).
+export const friendViewSchema = z.object({ ...friendPersonShape, since: timestampSchema });
+
+// A pending request: incoming = they asked the viewer, outgoing = the viewer asked them.
+export const friendRequestViewSchema = z.object({
+  ...friendPersonShape,
+  direction: z.enum(["incoming", "outgoing"]),
+  created_at: timestampSchema,
+});
+
+export const friendsOverviewSchema = z.object({
+  friends: z.array(friendViewSchema),
+  incoming: z.array(friendRequestViewSchema),
+  outgoing: z.array(friendRequestViewSchema),
+});
+
 export const memoryMediaSchema = z.object({
   id: idSchema,
   memory_id: idSchema,

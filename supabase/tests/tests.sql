@@ -482,4 +482,110 @@ do $$ begin
 end $$;
 commit;
 
+-- ---------------------------------------------------------------- friends: usernames, requests, visibility
+do $$ begin
+  perform t.eq((select username from public.profiles where user_id = current_setting('t.owner')::uuid), 'sea', 'username from the e-mail prefix');
+  perform t.eq((select count(*) from public.profiles where username is null), 0::bigint, 'every profile has a username');
+end $$;
+
+-- sign-up with a requested username: used when valid and free, otherwise generated from the e-mail
+insert into auth.users (id, email, raw_user_meta_data) values
+  ('10000000-0000-4000-8000-0000000000c1', 'wanted@example.com', '{"username":"Wanted.Name"}'),
+  ('10000000-0000-4000-8000-0000000000c2', 'sea@other.example', '{"username":"sea"}'),
+  ('10000000-0000-4000-8000-0000000000c3', 'x@example.com', '{"username":"-bad-"}');
+do $$ begin
+  perform t.eq((select username from public.profiles where user_id = '10000000-0000-4000-8000-0000000000c1'), 'wanted.name', 'requested username is used (lowercased)');
+  perform t.eq((select username like 'sea.%' from public.profiles where user_id = '10000000-0000-4000-8000-0000000000c2'), true, 'taken username gets a suffix');
+  perform t.eq((select username from public.profiles where user_id = '10000000-0000-4000-8000-0000000000c3'), 'friend', 'too-short e-mail prefix falls back');
+end $$;
+
+begin;
+select t.as_user('owner') as u \gset
+do $$ begin
+  perform t.eq((select count(*) from public.profiles where user_id = current_setting('t.outsider')::uuid), 0::bigint, 'strangers cannot read each other''s profile');
+  perform t.throws($q$ select public.send_friend_request('nobody.here') $q$, 'NOT_FOUND');
+  perform t.throws($q$ select public.send_friend_request('@sea') $q$, 'VALIDATION_ERROR');
+  perform t.eq(public.send_friend_request(' @OUT ') ->> 'status', 'pending', 'request sent (case, @ and spaces ignored)');
+  perform t.throws($q$ select public.send_friend_request('out') $q$, 'CONFLICT');
+  perform t.eq((select count(*) from public.profiles where user_id = current_setting('t.outsider')::uuid), 1::bigint, 'requester can read the addressee profile');
+  perform t.throws($q$ insert into public.friendships (requester_id, addressee_id) values (auth.uid(), auth.uid()) $q$, 'permission denied');
+  perform t.throws(format('select public.respond_friend_request(%L, true)', (select id from public.friendships)), 'NOT_FOUND');
+end $$;
+create temp table fctx as select id from public.friendships;
+grant select on fctx to public;
+commit;
+
+begin;
+select t.as_user('partner') as u \gset
+do $$ begin
+  perform t.eq((select count(*) from public.friendships), 0::bigint, 'others cannot see the request');
+  perform t.eq((select count(*) from public.profiles where user_id = current_setting('t.outsider')::uuid), 0::bigint, 'others still cannot read the outsider');
+  perform t.throws(format('select public.remove_friendship(%L)', (select id from fctx)), 'NOT_FOUND');
+  perform t.throws(format('select public.respond_friend_request(%L, true)', (select id from fctx)), 'NOT_FOUND');
+end $$;
+rollback;
+
+begin;
+select t.as_user('outsider') as u \gset
+do $$ begin
+  perform t.eq((select display_name from public.profiles where user_id = current_setting('t.owner')::uuid), 'Sea', 'addressee can read the requester profile');
+  perform t.eq(public.respond_friend_request((select id from fctx), true), (select id from fctx), 'addressee accepts');
+  perform t.eq((select status from public.friendships), 'accepted', 'now friends');
+  perform t.throws($q$ select public.send_friend_request('sea') $q$, 'CONFLICT');
+  perform t.eq((select count(*) from public.rooms), 0::bigint, 'friendship gives no room access');
+end $$;
+commit;
+
+begin;
+select t.as_user('owner') as u \gset
+do $$ begin
+  perform t.eq(public.remove_friendship((select id from fctx)), (select id from fctx), 'unfriend');
+  perform t.eq((select count(*) from public.friendships), 0::bigint, 'row removed');
+  perform t.eq((select count(*) from public.profiles where user_id = current_setting('t.outsider')::uuid), 0::bigint, 'profile hidden again after unfriending');
+end $$;
+commit;
+
+-- crossing requests become one accepted friendship; declining deletes the request
+begin;
+select t.as_user('outsider') as u \gset
+select public.send_friend_request('sea') as r \gset
+commit;
+begin;
+select t.as_user('owner') as u \gset
+do $$ begin
+  perform t.eq(public.send_friend_request('out') ->> 'status', 'accepted', 'answering their request with a request accepts it');
+  perform t.eq((select count(*) from public.friendships), 1::bigint, 'still one row for the pair');
+  perform public.remove_friendship((select id from public.friendships));
+end $$;
+commit;
+begin;
+select t.as_user('third') as u \gset
+select public.send_friend_request('sea') as r \gset
+commit;
+begin;
+select t.as_user('owner') as u \gset
+do $$ begin
+  perform public.respond_friend_request((select id from public.friendships), false);
+  perform t.eq((select count(*) from public.friendships), 0::bigint, 'declined request is deleted');
+end $$;
+commit;
+
+-- usernames: owner can change their own; unique and format are enforced; nobody else can change it
+begin;
+select t.as_user('owner') as u \gset
+do $$ begin
+  update public.profiles set username = 'sea.days' where user_id = auth.uid();
+  perform t.eq((select username from public.profiles where user_id = auth.uid()), 'sea.days', 'owner changes their username');
+  perform t.throws($q$ update public.profiles set username = 'out' where user_id = auth.uid() $q$, 'duplicate key');
+  perform t.throws($q$ update public.profiles set username = 'Bad Name' where user_id = auth.uid() $q$, 'violates check constraint');
+end $$;
+rollback;
+begin;
+select t.as_user('partner') as u \gset
+do $$ begin
+  update public.profiles set username = 'stolen' where user_id = current_setting('t.owner')::uuid;
+  perform t.eq((select username from public.profiles where user_id = current_setting('t.owner')::uuid), 'sea', 'cannot change someone else''s username');
+end $$;
+rollback;
+
 \echo 'ALL DATABASE TESTS PASSED'

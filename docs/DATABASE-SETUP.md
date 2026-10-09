@@ -71,4 +71,6 @@ Not verified on hosted yet: Auth settings (Site URL / redirect URLs / email conf
 ## Hosted migration status
 All four migrations are applied on `bnukioggopvrnppxkkkk`: `...0000_schema`, `...0100_security`, `...0200_revoke_anon_helpers`, `...0300_r1_contract_alignment` (profiles `avatar_url`/`updated_at`, `rooms.description`, `create_room(..., p_description)`, `remove_room_member`). Details of the checks: `docs/SUPABASE-HANDOFF.md`.
 
+**Pending, not on hosted:** `20261010000400_friends.sql` (`profiles.username` with backfill, `friendships`, `send_friend_request` / `respond_friend_request` / `remove_friendship`, profile visibility for friends). Run `npm run test:db` and `npm run test:integration` on a local stack, then `npm run gen:types` (the friends entries in `database.types.ts` were added by hand), before `db push`. Until it is pushed, the Friends & Rooms page fails in real mode.
+
 Local stack: `npx supabase migration up --local`, then `npm run gen:types`. Hosted: `npx supabase db push --dry-run`, then `npx supabase db push`.
