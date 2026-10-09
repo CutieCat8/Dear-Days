@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 
+import { DitherCover } from "@/components/shared/dither-cover";
 import type { Room } from "@/lib/contracts/types";
 
 export const THEME_LABELS: Record<Room["theme"], string> = {
@@ -20,16 +21,30 @@ const RIDGE: Record<Room["theme"], [string, string, string]> = {
   night: ["#3a4776", "#27325a", "#182142"],
 };
 
+/** Default dithered cover until rooms can store their own image (next step). */
+export const DEFAULT_ROOM_COVER_IMAGE = "/covers/foggy-mountains.jpg";
+
 type RoomCoverProps = {
   theme: Room["theme"];
   className?: string;
   children?: ReactNode;
+  /** When set, the image is dithered as the cover instead of the illustrated theme. */
+  image?: string;
 };
 
-/** Illustrated placeholder cover; swap for a real photo once rooms store one. */
-export function RoomCover({ theme, className = "", children }: RoomCoverProps) {
+/** Illustrated placeholder cover; pass `image` to use a dithered photo instead. */
+export function RoomCover({ theme, className = "", children, image }: RoomCoverProps) {
   const [top, bottom] = SKY[theme];
   const [far, mid, near] = RIDGE[theme];
+
+  if (image) {
+    return (
+      <div className={`relative isolate overflow-hidden bg-[var(--color-cream-200)] ${className}`}>
+        <DitherCover src={image} />
+        {children}
+      </div>
+    );
+  }
 
   return (
     <div className={`relative isolate overflow-hidden ${className}`} style={{ background: `linear-gradient(180deg, ${top}, ${bottom})` }}>

@@ -1,11 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 
 import { Breadcrumbs } from "@/components/shared/breadcrumbs";
-import { LockIcon, UsersIcon } from "@/components/shared/icons";
-import { RoomCover, THEME_LABELS } from "@/components/shared/room-cover";
+import { CameraIcon, LockIcon, TrashIcon, UsersIcon } from "@/components/shared/icons";
+import { DEFAULT_ROOM_COVER_IMAGE, RoomCover, THEME_LABELS } from "@/components/shared/room-cover";
+import { MEDIA_CONSTRAINTS } from "@/lib/contracts/constants";
 import type { Room } from "@/lib/contracts/types";
 
 type RoomFormProps = {
@@ -21,7 +22,42 @@ export function RoomForm({ mode, room, cancelHref }: RoomFormProps) {
   const [period, setPeriod] = useState(room?.life_period ?? "");
   const [theme, setTheme] = useState<Room["theme"]>(room?.theme ?? "sunrise");
   const isEdit = mode === "edit";
+  const [coverUrl, setCoverUrl] = useState(DEFAULT_ROOM_COVER_IMAGE);
+  const [coverFile, setCoverFile] = useState<File | null>(null);
+  const [coverError, setCoverError] = useState<string | null>(null);
+  const objectUrl = useRef<string | null>(null);
 
+  useEffect(() => () => {
+    if (objectUrl.current) URL.revokeObjectURL(objectUrl.current);
+  }, []);
+
+  function chooseCover(file: File | undefined) {
+    if (!file) return;
+    if (!(MEDIA_CONSTRAINTS.acceptedMimeTypes as readonly string[]).includes(file.type)) {
+      setCoverError("Only JPEG, PNG and WebP files are supported");
+      return;
+    }
+    if (file.size > MEDIA_CONSTRAINTS.maxFileBytes) {
+      setCoverError("The image must be 10 MB or smaller");
+      return;
+    }
+    if (objectUrl.current) URL.revokeObjectURL(objectUrl.current);
+    objectUrl.current = URL.createObjectURL(file);
+    setCoverError(null);
+    setCoverFile(file);
+    setCoverUrl(objectUrl.current);
+  }
+
+  function resetCover() {
+    if (objectUrl.current) URL.revokeObjectURL(objectUrl.current);
+    objectUrl.current = null;
+    setCoverError(null);
+    setCoverFile(null);
+    setCoverUrl(DEFAULT_ROOM_COVER_IMAGE);
+  }
+
+  // TODO(T7/T9): upload coverFile to private storage and send its path with createRoom/updateRoom.
+  // Needs a room cover field in the contract (src/lib/contracts + docs/CONTRACTS.md) first.
   // TODO(T7/T9): call createRoom/updateRoom from src/lib/data.
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -63,6 +99,24 @@ export function RoomForm({ mode, room, cancelHref }: RoomFormProps) {
             </div>
           </fieldset>
 
+          <div>
+            <p className="field-label" id="cover-label">Cover photo <small>(optional)</small></p>
+            <div className="flex flex-wrap items-center gap-3">
+              <RoomCover className="aspect-[16/10] w-36 shrink-0 rounded-lg border border-[var(--color-border)]" image={coverUrl} theme={theme} />
+              <div className="grid gap-2">
+                <label className="btn btn-secondary btn-sm cursor-pointer">
+                  <CameraIcon className="size-3.5" /> {coverFile ? "Change photo" : "Choose photo"}
+                  <input accept={MEDIA_CONSTRAINTS.acceptedMimeTypes.join(",")} aria-describedby="cover-hint" className="sr-only" name="cover" onChange={(event) => { chooseCover(event.target.files?.[0]); event.target.value = ""; }} type="file" />
+                </label>
+                {coverFile ? (
+                  <button className="btn btn-secondary btn-sm" onClick={resetCover} type="button"><TrashIcon className="size-3.5" /> Use default</button>
+                ) : null}
+              </div>
+            </div>
+            <p className="mt-2 text-[0.7rem] text-[var(--color-muted)]" id="cover-hint">JPEG, PNG or WebP, up to 10 MB. Shown with a dithered look.</p>
+            {coverError ? <p className="mt-2 rounded-lg bg-[#f8e3e3] px-3 py-2 text-xs text-[#8a3a3a]" role="alert">{coverError}</p> : null}
+          </div>
+
           <div className="flex flex-col gap-2.5 sm:flex-row">
             <button className="btn btn-primary flex-1" type="submit">{isEdit ? "Save changes" : "Create room"}</button>
             <Link className="btn btn-secondary flex-1" href={cancelHref}>Cancel</Link>
@@ -78,8 +132,9 @@ export function RoomForm({ mode, room, cancelHref }: RoomFormProps) {
             <p className="text-xs text-[var(--color-muted)]">This is how your room will look.</p>
           </div>
           <div className="px-4 pb-4">
-            <RoomCover className="flex aspect-[16/10] items-end rounded-xl p-5" theme={theme}>
-              <div className="text-white [text-shadow:0_2px_12px_rgb(0_0_0/0.35)]">
+            <RoomCover className="flex aspect-[16/10] items-end rounded-xl p-5" image={coverUrl} theme={theme}>
+              <span aria-hidden="true" className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" />
+              <div className="relative text-white [text-shadow:0_2px_12px_rgb(0_0_0/0.35)]">
                 <p className="font-display text-2xl sm:text-3xl">{name || "Your room name"}</p>
                 <p className="mt-0.5 text-xs">{period || "Life period"}</p>
                 <p className="mt-2.5 inline-flex items-center gap-1.5 text-[0.7rem]"><LockIcon className="size-3.5" /> Private room · just for you and one invited person</p>

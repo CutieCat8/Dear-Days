@@ -4,7 +4,7 @@ import Link from "next/link";
 import { MoodBadge } from "@/components/shared/mood-badge";
 import { Breadcrumbs } from "@/components/shared/breadcrumbs";
 import { ArrowRightIcon, CameraIcon, ImageIcon, LeafIcon, LockIcon, PinIcon, PlusIcon, SmileIcon, TextIcon, UsersIcon } from "@/components/shared/icons";
-import { RoomCover, THEME_LABELS } from "@/components/shared/room-cover";
+import { DEFAULT_ROOM_COVER_IMAGE, RoomCover, THEME_LABELS } from "@/components/shared/room-cover";
 import { MOOD_LABELS } from "@/lib/contracts/constants";
 import { mockMemories, mockRooms, mockTags } from "@/lib/contracts/fixtures";
 import type { Memory } from "@/lib/contracts/types";
@@ -54,7 +54,7 @@ export default function HomePage() {
               const count = mockMemories.filter((memory) => memory.room_id === room.id).length;
               return (
                 <Link className="panel group overflow-hidden transition-shadow duration-200 hover:shadow-[var(--shadow-soft)]" href={`/rooms/${room.id}`} key={room.id}>
-                  <RoomCover className="aspect-[16/9]" theme={room.theme}>
+                  <RoomCover className="aspect-[16/9]" image={DEFAULT_ROOM_COVER_IMAGE} theme={room.theme}>
                     <span className="absolute left-2.5 top-2.5 inline-flex items-center gap-1 rounded-full bg-[var(--color-paper)]/90 px-2 py-0.5 text-[0.65rem] font-medium text-[var(--color-green-deep)]">
                       <LockIcon className="size-3" /> Private
                     </span>

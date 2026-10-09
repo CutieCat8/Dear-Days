@@ -16,10 +16,13 @@
     "@react-three/fiber": "^9.8.1",
     "@supabase/ssr": "^0.7.0",
     "@supabase/supabase-js": "^2.57.4",
+    "clsx": "^2.1.1",
+    "motion": "^14.0.0",
     "next": "^16.2.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-hook-form": "^7.62.0",
+    "tailwind-merge": "^3.7.0",
     "three": "^0.186.1",
     "zod": "^4.1.11"
   },
