@@ -1,5 +1,11 @@
 import { AuthScreen } from "@/components/features/auth/auth-screen";
+import { safeNextPath } from "@/lib/auth/paths";
 
-export default function SignInPage() {
-  return <AuthScreen mode="sign-in" />;
+type SignInPageProps = {
+  searchParams: Promise<{ next?: string }>;
+};
+
+export default async function SignInPage({ searchParams }: SignInPageProps) {
+  const { next } = await searchParams;
+  return <AuthScreen mode="sign-in" next={safeNextPath(next)} />;
 }
