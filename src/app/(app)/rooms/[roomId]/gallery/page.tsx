@@ -8,7 +8,7 @@ import { ArrowRightIcon, BookIcon, CalendarIcon, EditIcon, LockIcon, PinIcon, Pl
 import { MoodBadge } from "@/components/shared/mood-badge";
 import { MOOD_LABELS, MOODS } from "@/lib/contracts/constants";
 import type { Memory, Mood } from "@/lib/contracts/types";
-import { getDataSource, getRoomMembers } from "@/lib/data/server";
+import { getDataSource, getRoomMembers, getViewer } from "@/lib/data/server";
 import { unwrap } from "@/lib/data/unwrap";
 
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -48,6 +48,7 @@ export default async function GalleryPage({ params, searchParams }: GalleryPageP
   const { q = "", mood = "", day: dayParam = "", memory: memoryParam = "" } = await searchParams;
   const source = await getDataSource();
   const room = unwrap(await source.getRoom(roomId));
+  const viewer = await getViewer();
   const names = new Map((unwrap(await getRoomMembers([room.id])).get(room.id) ?? []).map((member) => [member.user_id, member.display_name]));
   const authorName = (authorId: string) => names.get(authorId) ?? "A member";
 
@@ -148,7 +149,7 @@ export default async function GalleryPage({ params, searchParams }: GalleryPageP
                 <div className="flex min-w-0 flex-col">
                   <div className="flex items-start justify-between gap-3">
                     <h2 className="title-xl !text-[1.7rem]">{selected.title}</h2>
-                    <Link className="btn btn-secondary btn-sm shrink-0" href={`/rooms/${room.id}/memories/${selected.id}/edit`}><EditIcon className="size-3.5" /> Edit memory</Link>
+                    {viewer?.user_id === selected.author_id ? <Link className="btn btn-secondary btn-sm shrink-0" href={`/rooms/${room.id}/memories/${selected.id}/edit`}><EditIcon className="size-3.5" /> Edit memory</Link> : null}
                   </div>
                   <p className="mt-2 flex flex-wrap items-center gap-2 text-xs text-[var(--color-muted)]">
                     <CalendarIcon className="size-3.5" /> {longDate(selected.memory_date)} <span aria-hidden="true">·</span> by {authorName(selected.author_id)}

@@ -11,6 +11,8 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 type AuthScreenProps = {
   mode: "sign-in" | "sign-up";
+  /** Same-site path to return to after signing in (set by the proxy redirect, e.g. an invite link). */
+  next?: string;
 };
 
 const COPY = {
@@ -37,7 +39,7 @@ const POLAROIDS = [
   { caption: "Little moments, kept forever", theme: "night", className: "rotate-2" },
 ] as const;
 
-export function AuthScreen({ mode }: AuthScreenProps) {
+export function AuthScreen({ mode, next = "/" }: AuthScreenProps) {
   const copy = COPY[mode];
   const [showPassword, setShowPassword] = useState(false);
 
@@ -48,8 +50,7 @@ export function AuthScreen({ mode }: AuthScreenProps) {
 
   /** Where to go after signing in: the page the proxy redirected from, same-site paths only. */
   function nextPath() {
-    const next = new URLSearchParams(window.location.search).get("next") ?? "/";
-    return next.startsWith("/") && !next.startsWith("//") ? next : "/";
+    return next;
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -87,14 +88,14 @@ export function AuthScreen({ mode }: AuthScreenProps) {
         const { data, error: signUpError } = await supabase.auth.signUp({
           email,
           password,
-          options: { data: { display_name: displayName }, emailRedirectTo: `${window.location.origin}/auth/callback` },
+          options: { data: { display_name: displayName }, emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}` },
         });
         if (signUpError) {
           setError(signUpError.status === 429 ? "Too many attempts. Please wait a moment and try again." : signUpError.message);
           return;
         }
         if (data.session) {
-          router.replace("/");
+          router.replace(nextPath());
           router.refresh();
         } else {
           // the project requires e-mail confirmation: no session until the link is opened
@@ -177,7 +178,7 @@ export function AuthScreen({ mode }: AuthScreenProps) {
           <div className="my-5 flex items-center gap-3 text-xs text-[var(--color-muted)]">
             <span className="h-px flex-1 bg-[var(--color-border)]" /> or <span className="h-px flex-1 bg-[var(--color-border)]" />
           </div>
-          <Link className="btn btn-secondary w-full" href={copy.altHref}>{copy.altLabel}</Link>
+          <Link className="btn btn-secondary w-full" href={next === "/" ? copy.altHref : `${copy.altHref}?next=${encodeURIComponent(next)}`}>{copy.altLabel}</Link>
           <p className="mt-3 text-center text-xs text-[var(--color-muted)]">{copy.altText}</p>
         </div>
       </section>
