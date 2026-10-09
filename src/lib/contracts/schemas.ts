@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { MEDIA_CONSTRAINTS, MOODS, ROOM_ROLES, ROOM_THEMES, TAG_TYPES } from "./constants";
+import { INVITE_CODE_LENGTH, MEDIA_CONSTRAINTS, MOODS, ROOM_MAX_MEMBERS, ROOM_ROLES, ROOM_THEMES, TAG_TYPES } from "./constants";
 
 const idSchema = z.string().uuid();
 const timestampSchema = z.string().datetime({ offset: true });
@@ -12,14 +12,29 @@ export const tagTypeSchema = z.enum(TAG_TYPES);
 export const roomRoleSchema = z.enum(ROOM_ROLES);
 export const roomThemeSchema = z.enum(ROOM_THEMES);
 
+const displayNameSchema = z.string().trim().min(1, "Please enter a display name").max(50);
+const roomDescriptionSchema = z.string().trim().max(300);
+
+export const inviteCodeSchema = z.string().trim().toUpperCase()
+  .regex(new RegExp(`^[A-Z0-9]{${INVITE_CODE_LENGTH}}$`), `Invite codes are ${INVITE_CODE_LENGTH} letters or numbers`);
+
+export const profileSchema = z.object({
+  id: idSchema,
+  display_name: displayNameSchema,
+  avatar_url: z.string().min(1).nullable(),
+  created_at: timestampSchema,
+  updated_at: timestampSchema,
+});
+
 export const roomSchema = z.object({
   id: idSchema,
   owner_id: idSchema,
   name: z.string().trim().min(1).max(80),
   life_period: z.string().trim().min(1).max(80),
+  description: roomDescriptionSchema.nullable(),
   theme: roomThemeSchema,
-  invite_code: z.string().length(8),
-  member_count: z.number().int().min(1).max(2),
+  invite_code: inviteCodeSchema,
+  member_count: z.number().int().min(1).max(ROOM_MAX_MEMBERS),
   created_at: timestampSchema,
   updated_at: timestampSchema,
 });
@@ -27,6 +42,16 @@ export const roomSchema = z.object({
 export const roomMembershipSchema = z.object({
   room_id: idSchema,
   user_id: idSchema,
+  role: roomRoleSchema,
+  joined_at: timestampSchema,
+});
+
+// Public view of another room member: no email or other account data.
+export const roomMemberViewSchema = z.object({
+  room_id: idSchema,
+  user_id: idSchema,
+  display_name: displayNameSchema,
+  avatar_url: z.string().min(1).nullable(),
   role: roomRoleSchema,
   joined_at: timestampSchema,
 });
@@ -84,7 +109,12 @@ export const memorySchema = z.object({
 export const roomInputSchema = z.object({
   name: z.string().trim().min(1, "Please enter a room name").max(80),
   life_period: z.string().trim().min(1, "Please enter a life period").max(80),
+  description: roomDescriptionSchema.nullable(),
   theme: roomThemeSchema,
+});
+
+export const profileInputSchema = z.object({
+  display_name: displayNameSchema,
 });
 
 export const tagInputSchema = z.object({

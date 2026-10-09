@@ -5,19 +5,36 @@ import type {
   MemoryListParams,
   NewMediaUpload,
   Paginated,
+  Profile,
+  ProfileInput,
   Room,
   RoomInput,
+  RoomMemberView,
   Tag,
   TagInput,
 } from "./types";
 
 export interface DearDaysDataSource {
+  /** Profile of the signed-in user. UNAUTHENTICATED without a session. */
+  getCurrentProfile(): Promise<DataResult<Profile>>;
+  /** Updates the signed-in user's own profile only; the user id comes from the session. */
+  updateProfile(input: ProfileInput): Promise<DataResult<Profile>>;
+
   listRooms(): Promise<DataResult<Room[]>>;
   getRoom(roomId: string): Promise<DataResult<Room>>;
   createRoom(input: RoomInput): Promise<DataResult<Room>>;
   updateRoom(roomId: string, input: Partial<RoomInput>): Promise<DataResult<Room>>;
   deleteRoom(roomId: string): Promise<DataResult<{ id: string }>>;
+  /**
+   * Normalizes the code with `inviteCodeSchema` (trim + uppercase).
+   * Unknown/revoked code → INVALID_INVITE_CODE; room already has 2 members → ROOM_FULL.
+   * Already a member → ok with the same room, no duplicate membership.
+   */
   joinRoom(inviteCode: string): Promise<DataResult<Room>>;
+  /** Members of a room the caller belongs to, owner first. Non-member → FORBIDDEN. */
+  listRoomMembers(roomId: string): Promise<DataResult<RoomMemberView[]>>;
+  /** Owner-only. Removing the owner (including themselves) → FORBIDDEN. */
+  removeRoomMember(roomId: string, userId: string): Promise<DataResult<{ user_id: string }>>;
 
   listMemories(params: MemoryListParams): Promise<DataResult<Paginated<Memory>>>;
   getMemory(roomId: string, memoryId: string): Promise<DataResult<Memory>>;
