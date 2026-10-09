@@ -7,10 +7,10 @@
 | คน | บทบาทตั้งแต่รอบนี้ | ขอบเขตหลัก |
 | --- | --- | --- |
 | จิรวัฒน์ | Auth + Memory application owner | Auth, Profile, data adapter และ UI integration ของ Memory, Media และ Tags |
-| สิรวิชญ์ | Room/Integration owner | Room/Membership/Invite data adapter, Home/Rooms/Join/Gallery/Museum data wiring และเตรียม release candidate |
+| ธนวัฒน์ | Room/Integration owner | Room/Membership/Invite data adapter, Home/Rooms/Join/Gallery/Museum data wiring และเตรียม release candidate |
 | ซี | Project, Database, Deployment & Privacy owner + Final UI reviewer | Supabase project, migrations, schema, RLS, Storage policies, production environment, deployment, release approval และตรวจ UI หลัง feature freeze |
 
-สิรวิชญ์เป็นผู้ดูแล integration branch และตัดสิน merge order จิรวัฒน์ดูแล application contracts ร่วมกับหน้าฝั่ง Memory ส่วนซีเป็นผู้อนุมัติการเปลี่ยน database field, migration, RLS และ Storage ทุกครั้ง
+ธนวัฒน์เป็นผู้ดูแล integration branch และตัดสิน merge order จิรวัฒน์ดูแล application contracts ร่วมกับหน้าฝั่ง Memory ส่วนซีเป็นผู้อนุมัติการเปลี่ยน database field, migration, RLS และ Storage ทุกครั้ง
 
 ## 2. สิ่งที่มีอยู่แล้วใน repo
 
@@ -66,7 +66,7 @@ Flow ที่ต้องส่งมอบ:
 
 ### R0 — เก็บสถานะปัจจุบันและเตรียมการทำงานร่วมกัน
 
-- **เจ้าของ:** สิรวิชญ์
+- **เจ้าของ:** ธนวัฒน์
 - **เริ่มได้:** ทันที
 - **งาน:**
   - [ ] ตรวจ diff ของ `room-form.tsx`, `room-cover.tsx` และ assets theme preview ที่ยังไม่ commit
@@ -78,7 +78,7 @@ Flow ที่ต้องส่งมอบ:
 ### R1 — ปรับ contract สำหรับ Profile, session และสมาชิกห้อง
 
 - **เจ้าของ:** จิรวัฒน์
-- **ผู้ตรวจ:** สิรวิชญ์
+- **ผู้ตรวจ:** ธนวัฒน์
 - **ผู้อนุมัติ database fields:** ซี
 - **เริ่มได้:** หลัง R0
 - **งาน:**
@@ -93,7 +93,7 @@ Flow ที่ต้องส่งมอบ:
 ### R2 — Supabase project, migrations และ generated types
 
 - **เจ้าของ:** ซี
-- **ผู้ตรวจ:** จิรวัฒน์และสิรวิชญ์ตรวจว่า generated types ใช้กับ application contracts ได้
+- **ผู้ตรวจ:** จิรวัฒน์และธนวัฒน์ตรวจว่า generated types ใช้กับ application contracts ได้
 - **เริ่มได้:** หลัง R1
 - **งาน:**
   - [ ] เตรียม Supabase project/env สำหรับ local และ hosted environment โดยไม่ commit secret
@@ -108,7 +108,7 @@ Flow ที่ต้องส่งมอบ:
 ### R3 — RLS และ Storage security
 
 - **เจ้าของ:** ซี
-- **ผู้ช่วยตรวจ:** จิรวัฒน์และสิรวิชญ์ช่วยรัน flow จาก application ตาม domain ของตน
+- **ผู้ช่วยตรวจ:** จิรวัฒน์และธนวัฒน์ช่วยรัน flow จาก application ตาม domain ของตน
 - **เริ่มได้:** หลัง R2
 - **งาน:**
   - [ ] เปิด RLS ทุกตารางที่มีข้อมูลผู้ใช้
@@ -185,7 +185,7 @@ Flow ที่ต้องส่งมอบ:
 
 ### R9 — Room, membership และ invite backend
 
-- **เจ้าของ:** สิรวิชญ์
+- **เจ้าของ:** ธนวัฒน์
 - **เริ่มได้:** หลัง R1–R3
 - **งาน:**
   - [ ] implement `listRooms`, `getRoom`, `createRoom`, `updateRoom`, `deleteRoom`
@@ -198,7 +198,7 @@ Flow ที่ต้องส่งมอบ:
 
 ### R10 — Add friend และ Join room UI integration
 
-- **เจ้าของ:** สิรวิชญ์
+- **เจ้าของ:** ธนวัฒน์
 - **เริ่มได้:** หลัง R9
 - **งาน:**
   - [ ] ทำปุ่ม Add friend ในหน้า Edit room/Members panel ให้เปิด invite panel/dialog
@@ -212,7 +212,7 @@ Flow ที่ต้องส่งมอบ:
 
 ### R11 — เชื่อม Room forms และรายการห้อง
 
-- **เจ้าของ:** สิรวิชญ์
+- **เจ้าของ:** ธนวัฒน์
 - **เริ่มได้:** หลัง R9
 - **งาน:**
   - [ ] เชื่อม Create/Edit room form กับ Zod และ data layer
@@ -224,7 +224,7 @@ Flow ที่ต้องส่งมอบ:
 
 ### R12 — Gallery, Home และ Museum data integration
 
-- **เจ้าของ:** สิรวิชญ์
+- **เจ้าของ:** ธนวัฒน์
 - **เริ่มได้:** หลัง R6 และ R9; ไม่ต้องรอ R8 เสร็จทั้งหมด
 - **งาน:**
   - [ ] เปลี่ยน Gallery เป็น `listMemories(MemoryListParams)`
@@ -237,7 +237,7 @@ Flow ที่ต้องส่งมอบ:
 
 ### R13 — App-wide loading, errors และ accessibility QA
 
-- **เจ้าของ:** สิรวิชญ์
+- **เจ้าของ:** ธนวัฒน์
 - **ผู้ช่วย:** จิรวัฒน์ตรวจ routes ที่ตนเป็นเจ้าของ
 - **เริ่มได้:** หลัง R8 และ R12
 - **งาน:**
@@ -252,7 +252,7 @@ Flow ที่ต้องส่งมอบ:
 ### R14 — Security และ regression checks
 
 - **เจ้าของ database/security:** ซี
-- **ผู้ทดสอบ application:** จิรวัฒน์สำหรับ Auth/Memory และสิรวิชญ์สำหรับ Room/Join/Gallery
+- **ผู้ทดสอบ application:** จิรวัฒน์สำหรับ Auth/Memory และธนวัฒน์สำหรับ Room/Join/Gallery
 - **เริ่มได้:** หลัง R3, R8, R12
 - **งาน:**
   - [ ] ทดสอบแก้ `room_id`, `author_id`, memory id และ Storage path จาก browser
@@ -265,7 +265,7 @@ Flow ที่ต้องส่งมอบ:
 
 ### R15 — Integration และ release candidate handoff
 
-- **เจ้าของ:** สิรวิชญ์
+- **เจ้าของ:** ธนวัฒน์
 - **เริ่มได้:** หลัง R13–R14
 - **งาน:**
   - [ ] merge ตามลำดับ R1/R2/R3 → domain implementations → UI integration
@@ -278,7 +278,7 @@ Flow ที่ต้องส่งมอบ:
 ### R16 — Final UI review
 
 - **เจ้าของ review:** ซี
-- **ผู้แก้ตาม review:** เจ้าของ route — จิรวัฒน์หรือสิรวิชญ์
+- **ผู้แก้ตาม review:** เจ้าของ route — จิรวัฒน์หรือธนวัฒน์
 - **เริ่มได้:** หลัง R15 feature freeze เท่านั้น
 - **งานของซี:**
   - [ ] ตรวจความสอดคล้องกับภาพที่ออกแบบไว้ โดยไม่เปลี่ยน contract หรือเพิ่ม feature ใหม่
@@ -307,35 +307,35 @@ Flow ที่ต้องส่งมอบ:
 
 - ซี: R2 และอนุมัติ database fields ใน R1
 - จิรวัฒน์: R1 และเริ่ม R4
-- สิรวิชญ์: R0, เตรียม room/membership implementation ของ R9 และ review R1
+- ธนวัฒน์: R0, เตรียม room/membership implementation ของ R9 และ review R1
 - เป้าหมายสิ้นวัน: schema reset ได้, login เริ่มทำงาน, contract invite/member ถูกล็อก
 
 ### Day 2 — Domain backend
 
 - ซี: R3
 - จิรวัฒน์: R4, R6, R7
-- สิรวิชญ์: R9, R10 และ R11
+- ธนวัฒน์: R9, R10 และ R11
 - เป้าหมายสิ้นวัน: auth, room/join และ memory CRUD ทำงานระดับ data layer
 
 ### Day 3 — UI wiring
 
 - ซี: support เฉพาะ migration/RLS/Storage defect ที่บล็อกเพื่อน; ยังไม่เริ่ม re-UI
 - จิรวัฒน์: R5 และ R8
-- สิรวิชญ์: R10–R12
+- ธนวัฒน์: R10–R12
 - เป้าหมายสิ้นวัน: ไม่มีหน้าหลักอ่าน fixtures ใน production path
 
 ### Day 4 — Integration, UI approval and release
 
 - ซี: R14 ด้าน database/security, R16 หลัง feature freeze และ R17 เมื่อ UI ผ่าน
 - จิรวัฒน์: ทดสอบ R14 ฝั่ง Auth/Memory และแก้ defects
-- สิรวิชญ์: R13, R15 และแก้ room/gallery defects ตาม final review
+- ธนวัฒน์: R13, R15 และแก้ room/gallery defects ตาม final review
 - เป้าหมายสิ้นวัน: deploy และ demo flow สองบัญชีผ่าน
 
 ## 7. กติกาป้องกันงานชนกัน
 
 - ซีเป็นเจ้าของ Supabase project, schema, migrations, database functions/RPC, RLS, Storage buckets/policies, generated database types, hosting, production environment และ deployment ทั้งหมด
 - จิรวัฒน์เป็นเจ้าของ application code ของ `auth`, `profile`, `memory`, `media` และ `tags` แต่เสนอ schema change ให้ซีทำหรืออนุมัติก่อน
-- สิรวิชญ์เป็นเจ้าของ application code ของ rooms, membership, invite/join, Home, Gallery, Museum wiring และ integration แต่เสนอ schema change ให้ซีทำหรืออนุมัติก่อน
+- ธนวัฒน์เป็นเจ้าของ application code ของ rooms, membership, invite/join, Home, Gallery, Museum wiring และ integration แต่เสนอ schema change ให้ซีทำหรืออนุมัติก่อน
 - เฉพาะซีตั้งหรือเปลี่ยน production secrets, Supabase production settings, hosting configuration และ release deployment; เพื่อนส่งมอบ release candidate โดยไม่ต้องรับ credentials
 - เพื่อนห้ามแก้ production schema หรือ policy ผ่าน Supabase Dashboard โดยตรง; database change ทุกครั้งต้องมี migration และ review โดยซี
 - เปลี่ยน `docs/CONTRACTS.md` ต้องมี review จากอีกคนก่อน merge
