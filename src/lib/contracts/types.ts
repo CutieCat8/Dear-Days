@@ -9,8 +9,11 @@ import type {
   memorySchema,
   moodSchema,
   newMediaMetadataSchema,
+  profileInputSchema,
+  profileSchema,
   roomInputSchema,
   roomMembershipSchema,
+  roomMemberViewSchema,
   roomRoleSchema,
   roomSchema,
   roomThemeSchema,
@@ -25,6 +28,9 @@ export type RoomRole = z.infer<typeof roomRoleSchema>;
 export type TagType = z.infer<typeof tagTypeSchema>;
 export type Room = z.infer<typeof roomSchema>;
 export type RoomMembership = z.infer<typeof roomMembershipSchema>;
+export type RoomMemberView = z.infer<typeof roomMemberViewSchema>;
+export type Profile = z.infer<typeof profileSchema>;
+export type ProfileInput = z.infer<typeof profileInputSchema>;
 export type Memory = z.infer<typeof memorySchema>;
 export type MemoryMedia = z.infer<typeof memoryMediaSchema>;
 export type Tag = z.infer<typeof tagSchema>;

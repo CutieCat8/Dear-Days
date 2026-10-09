@@ -13,6 +13,9 @@ export const TAG_TYPES = ["person", "place"] as const;
 export const ROOM_ROLES = ["owner", "member"] as const;
 export const ROOM_THEMES = ["sunrise", "rose", "night"] as const;
 
+export const ROOM_MAX_MEMBERS = 2;
+export const INVITE_CODE_LENGTH = 8;
+
 export const MEDIA_CONSTRAINTS = {
   maxFiles: 8,
   maxFileBytes: 10 * 1024 * 1024,
