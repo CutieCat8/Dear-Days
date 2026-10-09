@@ -2,6 +2,9 @@ import type { z } from "zod";
 
 import type {
   appErrorCodeSchema,
+  friendRequestViewSchema,
+  friendsOverviewSchema,
+  friendViewSchema,
   mediaMutationSchema,
   memoryInputSchema,
   memoryListParamsSchema,
@@ -31,6 +34,9 @@ export type RoomMembership = z.infer<typeof roomMembershipSchema>;
 export type RoomMemberView = z.infer<typeof roomMemberViewSchema>;
 export type Profile = z.infer<typeof profileSchema>;
 export type ProfileInput = z.infer<typeof profileInputSchema>;
+export type FriendView = z.infer<typeof friendViewSchema>;
+export type FriendRequestView = z.infer<typeof friendRequestViewSchema>;
+export type FriendsOverview = z.infer<typeof friendsOverviewSchema>;
 export type Memory = z.infer<typeof memorySchema>;
 export type MemoryMedia = z.infer<typeof memoryMediaSchema>;
 export type Tag = z.infer<typeof tagSchema>;

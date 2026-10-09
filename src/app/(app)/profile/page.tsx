@@ -63,7 +63,7 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
 
       <div className="mt-6 grid gap-5 lg:grid-cols-[1.1fr_1fr]">
         <section className="panel grid content-start gap-6 p-5 sm:p-6">
-          <ProfileForm bio={viewer.bio} displayName={name} email={viewer.email} />
+          <ProfileForm bio={viewer.bio} displayName={name} email={viewer.email} username={viewer.username} />
           <hr className="border-[var(--color-border)]" />
           <ChangePasswordForm email={viewer.email} />
         </section>

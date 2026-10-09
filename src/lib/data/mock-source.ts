@@ -1,6 +1,6 @@
 import type { DearDaysDataSource } from "@/lib/contracts/data-functions";
-import { mockCurrentProfile, mockMemories, mockRoomMembers, mockRooms, mockTags } from "@/lib/contracts/fixtures";
-import type { DataResult, FrameAssignment, Memory, MemoryListParams, Paginated, Profile, Room, RoomMemberView, Tag } from "@/lib/contracts/types";
+import { mockCurrentProfile, mockFriends, mockMemories, mockRoomMembers, mockRooms, mockTags } from "@/lib/contracts/fixtures";
+import type { DataResult, FrameAssignment, FriendsOverview, Memory, MemoryListParams, Paginated, Profile, Room, RoomMemberView, Tag } from "@/lib/contracts/types";
 
 import { fail, ok } from "./result";
 
@@ -13,6 +13,22 @@ export class MockDataSource implements DearDaysDataSource {
   }
 
   async updateProfile(): Promise<DataResult<Profile>> {
+    return fail("INTERNAL_ERROR", READ_ONLY);
+  }
+
+  async listFriends(): Promise<DataResult<FriendsOverview>> {
+    return ok(mockFriends);
+  }
+
+  async sendFriendRequest(): Promise<DataResult<{ friendship_id: string; status: "pending" | "accepted" }>> {
+    return fail("INTERNAL_ERROR", READ_ONLY);
+  }
+
+  async respondFriendRequest(): Promise<DataResult<{ friendship_id: string }>> {
+    return fail("INTERNAL_ERROR", READ_ONLY);
+  }
+
+  async removeFriend(): Promise<DataResult<{ friendship_id: string }>> {
     return fail("INTERNAL_ERROR", READ_ONLY);
   }
 

@@ -482,4 +482,198 @@ do $$ begin
 end $$;
 commit;
 
+-- ---------------------------------------------------------------- friends: usernames, requests, visibility
+do $$ begin
+  perform t.eq((select username from public.profiles where user_id = current_setting('t.owner')::uuid), 'sea', 'username from the e-mail prefix');
+  perform t.eq((select count(*) from public.profiles where username is null), 0::bigint, 'every profile has a username');
+end $$;
+
+-- sign-up with a requested username: used when valid and free, otherwise generated from the e-mail
+insert into auth.users (id, email, raw_user_meta_data) values
+  ('10000000-0000-4000-8000-0000000000c1', 'wanted@example.com', '{"username":"Wanted.Name"}'),
+  ('10000000-0000-4000-8000-0000000000c2', 'sea@other.example', '{"username":"sea"}'),
+  ('10000000-0000-4000-8000-0000000000c3', 'x@example.com', '{"username":"-bad-"}');
+do $$ begin
+  perform t.eq((select username from public.profiles where user_id = '10000000-0000-4000-8000-0000000000c1'), 'wanted.name', 'requested username is used (lowercased)');
+  perform t.eq((select username like 'sea.%' from public.profiles where user_id = '10000000-0000-4000-8000-0000000000c2'), true, 'taken username gets a suffix');
+  perform t.eq((select username from public.profiles where user_id = '10000000-0000-4000-8000-0000000000c3'), 'friend', 'too-short e-mail prefix falls back');
+end $$;
+
+begin;
+select t.as_user('owner') as u \gset
+do $$ begin
+  perform t.eq((select count(*) from public.profiles where user_id = current_setting('t.outsider')::uuid), 0::bigint, 'strangers cannot read each other''s profile');
+  perform t.throws($q$ select public.send_friend_request('nobody.here') $q$, 'NOT_FOUND');
+  perform t.throws($q$ select public.send_friend_request('@sea') $q$, 'VALIDATION_ERROR');
+  perform t.eq(public.send_friend_request(' @OUT ') ->> 'status', 'pending', 'request sent (case, @ and spaces ignored)');
+  perform t.throws($q$ select public.send_friend_request('out') $q$, 'CONFLICT');
+  perform t.eq((select count(*) from public.profiles where user_id = current_setting('t.outsider')::uuid), 1::bigint, 'requester can read the addressee profile');
+  perform t.throws($q$ insert into public.friendships (requester_id, addressee_id) values (auth.uid(), auth.uid()) $q$, 'permission denied');
+  perform t.throws(format('select public.respond_friend_request(%L, true)', (select id from public.friendships)), 'NOT_FOUND');
+end $$;
+create temp table fctx as select id from public.friendships;
+grant select on fctx to public;
+commit;
+
+begin;
+select t.as_user('partner') as u \gset
+do $$ begin
+  perform t.eq((select count(*) from public.friendships), 0::bigint, 'others cannot see the request');
+  perform t.eq((select count(*) from public.profiles where user_id = current_setting('t.outsider')::uuid), 0::bigint, 'others still cannot read the outsider');
+  perform t.throws(format('select public.remove_friendship(%L)', (select id from fctx)), 'NOT_FOUND');
+  perform t.throws(format('select public.respond_friend_request(%L, true)', (select id from fctx)), 'NOT_FOUND');
+end $$;
+rollback;
+
+begin;
+select t.as_user('outsider') as u \gset
+do $$ begin
+  perform t.eq((select display_name from public.profiles where user_id = current_setting('t.owner')::uuid), 'Sea', 'addressee can read the requester profile');
+  perform t.eq(public.respond_friend_request((select id from fctx), true), (select id from fctx), 'addressee accepts');
+  perform t.eq((select status from public.friendships), 'accepted', 'now friends');
+  perform t.throws($q$ select public.send_friend_request('sea') $q$, 'CONFLICT');
+  perform t.eq((select count(*) from public.rooms), 0::bigint, 'friendship gives no room access');
+end $$;
+commit;
+
+begin;
+select t.as_user('owner') as u \gset
+do $$ begin
+  perform t.eq(public.remove_friendship((select id from fctx)), (select id from fctx), 'unfriend');
+  perform t.eq((select count(*) from public.friendships), 0::bigint, 'row removed');
+  perform t.eq((select count(*) from public.profiles where user_id = current_setting('t.outsider')::uuid), 0::bigint, 'profile hidden again after unfriending');
+end $$;
+commit;
+
+-- crossing requests become one accepted friendship; declining deletes the request
+begin;
+select t.as_user('outsider') as u \gset
+select public.send_friend_request('sea') as r \gset
+commit;
+begin;
+select t.as_user('owner') as u \gset
+do $$ begin
+  perform t.eq(public.send_friend_request('out') ->> 'status', 'accepted', 'answering their request with a request accepts it');
+  perform t.eq((select count(*) from public.friendships), 1::bigint, 'still one row for the pair');
+  perform public.remove_friendship((select id from public.friendships));
+end $$;
+commit;
+begin;
+select t.as_user('third') as u \gset
+select public.send_friend_request('sea') as r \gset
+commit;
+begin;
+select t.as_user('owner') as u \gset
+do $$ begin
+  perform public.respond_friend_request((select id from public.friendships), false);
+  perform t.eq((select count(*) from public.friendships), 0::bigint, 'declined request is deleted');
+end $$;
+commit;
+
+-- usernames: owner can change their own; unique and format are enforced; nobody else can change it
+begin;
+select t.as_user('owner') as u \gset
+do $$ begin
+  update public.profiles set username = 'sea.days' where user_id = auth.uid();
+  perform t.eq((select username from public.profiles where user_id = auth.uid()), 'sea.days', 'owner changes their username');
+  perform t.throws($q$ update public.profiles set username = 'out' where user_id = auth.uid() $q$, 'duplicate key');
+  perform t.throws($q$ update public.profiles set username = 'Bad Name' where user_id = auth.uid() $q$, 'violates check constraint');
+end $$;
+rollback;
+begin;
+select t.as_user('partner') as u \gset
+do $$ begin
+  update public.profiles set username = 'stolen' where user_id = current_setting('t.owner')::uuid;
+  perform t.eq((select username from public.profiles where user_id = current_setting('t.owner')::uuid), 'sea', 'cannot change someone else''s username');
+end $$;
+rollback;
+
+-- ---------------------------------------------------------------- 13. frame slots: members pick which photo hangs in which frame
+begin;
+select t.as_user('owner') as u \gset
+do $$
+declare r public.rooms; m_photo1 uuid := gen_random_uuid(); m_photo2 uuid := gen_random_uuid(); m_text uuid := gen_random_uuid();
+begin
+  r := public.create_room('Frames', 'p', 'sunrise');
+  perform set_config('t.fr_room', r.id::text, true);
+  perform set_config('t.fr_code', r.invite_code, true);
+  perform set_config('t.fr_m1', m_photo1::text, true);
+  perform set_config('t.fr_m2', m_photo2::text, true);
+  perform set_config('t.fr_mt', m_text::text, true);
+  perform public.save_memory(r.id, m_photo1, format('{"title":"p1","body":"b","memory_date":"2026-10-01","tags":[],"media":{"added":[{"client_id":"a0000000-0000-4000-8000-0000000000c1","id":"a0000000-0000-4000-8000-0000000000c1","storage_path":"%s/%s/%s/1.jpg","mime_type":"image/jpeg","size_bytes":10,"alt_text":""}],"existing":[],"removed_media_ids":[],"order":[{"kind":"new","client_id":"a0000000-0000-4000-8000-0000000000c1"}],"cover":{"kind":"new","client_id":"a0000000-0000-4000-8000-0000000000c1"}}}', r.id, auth.uid(), m_photo1)::jsonb);
+  perform public.save_memory(r.id, m_photo2, format('{"title":"p2","body":"b","memory_date":"2026-10-02","tags":[],"media":{"added":[{"client_id":"a0000000-0000-4000-8000-0000000000c2","id":"a0000000-0000-4000-8000-0000000000c2","storage_path":"%s/%s/%s/2.jpg","mime_type":"image/jpeg","size_bytes":10,"alt_text":""}],"existing":[],"removed_media_ids":[],"order":[{"kind":"new","client_id":"a0000000-0000-4000-8000-0000000000c2"}],"cover":{"kind":"new","client_id":"a0000000-0000-4000-8000-0000000000c2"}}}', r.id, auth.uid(), m_photo2)::jsonb);
+  perform public.save_memory(r.id, m_text, '{"title":"t","body":"b","memory_date":"2026-10-03","tags":[],"media":{"added":[],"existing":[],"removed_media_ids":[],"order":[],"cover":null}}'::jsonb);
+end $$;
+create temp table frctx as select current_setting('t.fr_room') as room, current_setting('t.fr_code') as code,
+  current_setting('t.fr_m1') as m1, current_setting('t.fr_m2') as m2, current_setting('t.fr_mt') as mt;
+grant select on frctx to public;
+commit;
+
+begin;
+select t.as_user('owner') as u \gset
+do $$
+declare room uuid := (select room::uuid from frctx);
+begin
+  perform public.set_frame_layout(room, format('{"left1":%s,"right2":%s}', to_json((select m1 from frctx)), to_json((select m2 from frctx)))::jsonb);
+  perform t.eq((select count(*) from public.room_frame_slots where room_id = room), 2::bigint, 'owner saves a layout');
+  -- swapping two photos in one save never violates "one memory per frame"
+  perform public.set_frame_layout(room, format('{"left1":%s,"right2":%s}', to_json((select m2 from frctx)), to_json((select m1 from frctx)))::jsonb);
+  perform t.eq((select memory_id::text from public.room_frame_slots where room_id = room and slot_id = 'left1'), (select m2 from frctx), 'photos swap frames');
+  perform t.throws(format('select public.set_frame_layout(%L, %L::jsonb)', room, format('{"a":%s,"b":%s}', to_json((select m1 from frctx)), to_json((select m1 from frctx)))), 'room_frame_slots_memory_key');
+  perform t.eq((select count(*) from public.room_frame_slots where room_id = room), 2::bigint, 'a failed save keeps the previous layout');
+  perform t.throws(format('select public.set_frame_layout(%L, %L::jsonb)', room, format('{"a":%s}', to_json((select mt from frctx)))), 'VALIDATION_ERROR');
+  perform t.throws(format('select public.set_frame_layout(%L, %L::jsonb)', room, '{"bad slot!":"x"}'), 'VALIDATION_ERROR');
+  perform t.throws(format('select public.set_frame_layout(%L, %L::jsonb)', room, '[]'), 'VALIDATION_ERROR');
+  perform t.throws(format('insert into public.room_frame_slots (room_id, slot_id, memory_id) values (%L, ''z'', %L)', room, (select m1 from frctx)), 'permission denied');
+  perform t.throws(format('delete from public.room_frame_slots where room_id = %L', room), 'permission denied');
+end $$;
+commit;
+
+begin;
+select t.as_user('outsider') as u \gset
+do $$
+declare room uuid := (select room::uuid from frctx);
+begin
+  perform t.eq((select count(*) from public.room_frame_slots), 0::bigint, 'outsider sees no frame slots');
+  perform t.throws(format('select public.set_frame_layout(%L, %L::jsonb)', room, '{}'), 'FORBIDDEN');
+end $$;
+rollback;
+
+begin;
+select t.as_anon() as u \gset
+do $$ begin
+  perform t.throws(format('select public.set_frame_layout(%L, %L::jsonb)', (select room from frctx), '{}'), 'permission denied');
+  perform t.throws('select * from public.room_frame_slots', 'permission denied');
+end $$;
+rollback;
+
+-- a second member can read and change the arrangement; deleting a memory frees its frame
+begin;
+select t.as_user('partner') as u \gset
+do $$
+declare room uuid := (select room::uuid from frctx);
+begin
+  perform public.join_room((select code from frctx));
+  perform t.eq((select count(*) from public.room_frame_slots where room_id = room), 2::bigint, 'member reads the arrangement');
+  perform public.set_frame_layout(room, format('{"only":%s}', to_json((select m1 from frctx)))::jsonb);
+  perform t.eq((select count(*) from public.room_frame_slots where room_id = room), 1::bigint, 'member changes the arrangement');
+  perform public.set_frame_layout(room, '{}'::jsonb);
+  perform t.eq((select count(*) from public.room_frame_slots where room_id = room), 0::bigint, 'empty layout returns to the automatic arrangement');
+end $$;
+commit;
+
+begin;
+select t.as_user('owner') as u \gset
+do $$
+declare room uuid := (select room::uuid from frctx);
+begin
+  perform public.set_frame_layout(room, format('{"f1":%s}', to_json((select m1 from frctx)))::jsonb);
+end $$;
+reset role;
+delete from public.memories where id = (select m1::uuid from frctx);
+do $$ begin
+  perform t.eq((select count(*) from public.room_frame_slots where room_id = (select room::uuid from frctx)), 0::bigint, 'deleting the memory frees its frame');
+end $$;
+commit;
+
 \echo 'ALL DATABASE TESTS PASSED'

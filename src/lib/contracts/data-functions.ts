@@ -1,6 +1,7 @@
 import type {
   DataResult,
   FrameAssignment,
+  FriendsOverview,
   Memory,
   MemoryInput,
   MemoryListParams,
@@ -36,6 +37,19 @@ export interface DearDaysDataSource {
   listRoomMembers(roomId: string): Promise<DataResult<RoomMemberView[]>>;
   /** Owner-only. Removing the owner (including themselves) → FORBIDDEN. */
   removeRoomMember(roomId: string, userId: string): Promise<DataResult<{ user_id: string }>>;
+
+  /** The viewer's friends and pending requests (both directions). */
+  listFriends(): Promise<DataResult<FriendsOverview>>;
+  /**
+   * Sends a request to `username` (spaces, case and a leading "@" are ignored).
+   * Unknown username → NOT_FOUND; yourself → VALIDATION_ERROR; already friends or already asked → CONFLICT.
+   * If they already asked you, their request is accepted instead (`status: "accepted"`).
+   */
+  sendFriendRequest(username: string): Promise<DataResult<{ friendship_id: string; status: "pending" | "accepted" }>>;
+  /** Accept or decline a request sent to the viewer; anything else → NOT_FOUND. Declining deletes the request. */
+  respondFriendRequest(friendshipId: string, accept: boolean): Promise<DataResult<{ friendship_id: string }>>;
+  /** Unfriend, or cancel a request either person sent; not one of the two people → NOT_FOUND. */
+  removeFriend(friendshipId: string): Promise<DataResult<{ friendship_id: string }>>;
 
   listMemories(params: MemoryListParams): Promise<DataResult<Paginated<Memory>>>;
   getMemory(roomId: string, memoryId: string): Promise<DataResult<Memory>>;

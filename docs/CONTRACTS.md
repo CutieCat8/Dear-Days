@@ -99,9 +99,40 @@ type RoomMemberView = {
 
 ห้ามเพิ่ม email หรือข้อมูลบัญชีอื่นใน view นี้
 
+### Friends (หน้า Friends & Rooms, `/rooms/join`)
+
+ข้อเสนอเพิ่มจาก MVP เดิม: ระบบเพื่อนด้วย username ต้องให้ทีมยืนยันขอบเขต และให้ซี review/push migration `20261010000400_friends.sql`
+การเป็นเพื่อน **ไม่** ให้สิทธิ์เข้าห้องหรืออ่าน memory การเข้าห้องยังต้องใช้ invite code เหมือนเดิม
+
+```ts
+// username: a-z 0-9 . _ (3..30) ขึ้นต้นและลงท้ายด้วยตัวอักษรหรือตัวเลข; input ตัดช่องว่าง, "@" ข้างหน้า และแปลงเป็นตัวเล็ก (usernameSchema)
+type FriendView = {
+  friendship_id: string; user_id: string;
+  display_name: string; username: string; avatar_url: string | null;
+  since: string;                         // ISO datetime ที่กลายเป็นเพื่อน
+};
+type FriendRequestView = Omit<FriendView, "since"> & {
+  direction: "incoming" | "outgoing";    // incoming = เขาขอเรา, outgoing = เราขอเขา
+  created_at: string;
+};
+type FriendsOverview = { friends: FriendView[]; incoming: FriendRequestView[]; outgoing: FriendRequestView[] };
+```
+
+| Function | กรณี | ผลลัพธ์ |
+| --- | --- | --- |
+| `listFriends()` | ไม่มี session | `UNAUTHENTICATED` |
+| `sendFriendRequest(username)` | ไม่พบ username | `NOT_FOUND` |
+| | username ของตัวเอง | `VALIDATION_ERROR` |
+| | เป็นเพื่อนแล้ว หรือส่งคำขอไปแล้ว | `CONFLICT` |
+| | อีกฝ่ายส่งคำขอมาก่อน | ยอมรับคำขอนั้นให้เลย `{ status: "accepted" }` |
+| `respondFriendRequest(id, accept)` | ไม่ใช่ผู้รับของคำขอที่ยัง pending | `NOT_FOUND`; ปฏิเสธ = ลบคำขอ |
+| `removeFriend(id)` | ไม่ใช่หนึ่งในสองคน | `NOT_FOUND`; ใช้ได้ทั้งเลิกเป็นเพื่อนและยกเลิกคำขอ |
+
+ทุกบัญชีมี `profiles.username` (ระบบตั้งให้ตอนสมัคร แก้ได้ในหน้า Profile) และ `Account.username` ใช้แสดงให้เจ้าของเห็นเท่านั้น profile ของคนอื่นอ่านได้เมื่ออยู่ห้องเดียวกัน เป็นเพื่อนกัน หรือมีคำขอค้างระหว่างกัน
+
 ### Add friend: invite และ join
 
-"Add friend" ใน MVP คือการเชิญสมาชิกอีก 1 คนเข้าห้อง ไม่มีระบบเพื่อนส่วนกลางและไม่ส่งอีเมล
+"Add friend" ใน MVP คือการเชิญสมาชิกอีก 1 คนเข้าห้องด้วย code/link (ระบบเพื่อนด้านบนเป็นส่วนเสริม ไม่ได้แทนการ join ด้วย code) และไม่ส่งอีเมล
 
 - invite link รูปแบบ `/rooms/join?code=XXXXXXXX`; หน้า Join เติม code จาก query ให้อัตโนมัติ
 - client และ server normalize code ด้วย `inviteCodeSchema` (trim + uppercase, 8 ตัว A-Z/0-9)
@@ -218,6 +249,11 @@ deleteRoom(roomId): Promise<DataResult<{ id: string }>>
 joinRoom(inviteCode): Promise<DataResult<Room>>
 listRoomMembers(roomId): Promise<DataResult<RoomMemberView[]>>        // owner ก่อน; non-member → FORBIDDEN
 removeRoomMember(roomId, userId): Promise<DataResult<{ user_id: string }>>
+
+listFriends(): Promise<DataResult<FriendsOverview>>
+sendFriendRequest(username): Promise<DataResult<{ friendship_id: string; status: "pending" | "accepted" }>>
+respondFriendRequest(friendshipId, accept): Promise<DataResult<{ friendship_id: string }>>
+removeFriend(friendshipId): Promise<DataResult<{ friendship_id: string }>>
 
 listMemories(params): Promise<DataResult<Paginated<Memory>>>
 getMemory(roomId, memoryId): Promise<DataResult<Memory>>

@@ -374,6 +374,46 @@ async function main() {
     assert.ok((await owner.source.deleteRoom(mine.data.id)).ok);
   });
 
+  await step("frame slots: members arrange photos, outsiders and text memories are refused, a deleted memory frees its frame", async () => {
+    const mine = await owner.source.createRoom({ name: "Frames room", life_period: "2027", description: null, theme: "sunrise" });
+    assert.ok(mine.ok);
+    const room = mine.data.id;
+    assert.ok((await partner.source.joinRoom(mine.data.invite_code)).ok);
+    const a = withPhotos(1);
+    const b = withPhotos(1);
+    const first = await owner.source.createMemory(room, a.input, a.uploads);
+    const second = await partner.source.createMemory(room, b.input, b.uploads);
+    const note = await owner.source.createMemory(room, memoryInput({ tags: [] }), []);
+    assert.ok(first.ok && second.ok && note.ok);
+
+    const saved = await owner.source.setFrameLayout(room, { left1: first.data.id, right2: second.data.id });
+    assert.ok(saved.ok, JSON.stringify(saved));
+    const swapped = await partner.source.setFrameLayout(room, { left1: second.data.id, right2: first.data.id });
+    assert.ok(swapped.ok, "a member can rearrange, swapping two photos in one save");
+    const listed = await partner.source.listFrameAssignments(room);
+    assert.ok(listed.ok && listed.data.find((x) => x.slot_id === "left1")?.memory_id === second.data.id);
+
+    const duplicate = await owner.source.setFrameLayout(room, { a: first.data.id, b: first.data.id });
+    assert.ok(!duplicate.ok && duplicate.error.code === "CONFLICT", "one memory in two frames is refused");
+    const textOnly = await owner.source.setFrameLayout(room, { a: note.data.id });
+    assert.ok(!textOnly.ok && textOnly.error.code === "VALIDATION_ERROR", "a memory without photos cannot hang in a frame");
+    assert.equal((await owner.source.listFrameAssignments(room) as { data: unknown[] }).data.length, 2, "a refused save keeps the previous arrangement");
+
+    const stranger = await outsider.source.setFrameLayout(room, {});
+    assert.ok(!stranger.ok && stranger.error.code === "FORBIDDEN");
+    const strangerRead = await outsider.source.listFrameAssignments(room);
+    assert.ok(strangerRead.ok && strangerRead.data.length === 0, "an outsider reads no arrangement");
+    const anonymous = await anonSource.setFrameLayout(room, {});
+    assert.ok(!anonymous.ok && anonymous.error.code === "UNAUTHENTICATED");
+    const direct = await owner.client.from("room_frame_slots").insert({ room_id: room, slot_id: "zz", memory_id: first.data.id });
+    assert.ok(direct.error, "no direct writes to room_frame_slots");
+
+    assert.ok((await partner.source.deleteMemory(room, second.data.id)).ok);
+    const afterDelete = await owner.source.listFrameAssignments(room);
+    assert.ok(afterDelete.ok && afterDelete.data.every((x) => x.memory_id !== second.data.id), "deleting the memory frees its frame");
+    assert.ok((await owner.source.deleteRoom(room)).ok);
+  });
+
   await step("only the owner deletes the room; photos of both members are removed with it", async () => {
     const mine = withPhotos(1);
     const a = await owner.source.createMemory(roomId, mine.input, mine.uploads);

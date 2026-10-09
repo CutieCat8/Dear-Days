@@ -28,7 +28,7 @@ type PgLikeError = { message?: string; code?: string; details?: string; hint?: s
  */
 export function mapDatabaseError(error: PgLikeError): DataError {
   const message = error?.message ?? "";
-  const known: AppErrorCode[] = ["UNAUTHENTICATED", "FORBIDDEN", "NOT_FOUND", "VALIDATION_ERROR", "ROOM_FULL", "INVALID_INVITE_CODE"];
+  const known: AppErrorCode[] = ["UNAUTHENTICATED", "FORBIDDEN", "NOT_FOUND", "VALIDATION_ERROR", "CONFLICT", "ROOM_FULL", "INVALID_INVITE_CODE"];
   const direct = known.find((code) => message === code || message.startsWith(`${code}:`));
   if (direct) return { code: direct, message: MESSAGES[direct] };
 
