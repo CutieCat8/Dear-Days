@@ -80,7 +80,7 @@ export function ChangePasswordForm({ email }: { email: string | null }) {
           <div className="grid gap-1.5 sm:grid-cols-[8.5rem_1fr] sm:items-center sm:gap-4" key={name}>
             <label className="field-label !mb-0" htmlFor={id}>{label}</label>
             <div>
-              <input aria-describedby={errors[name] ? `${id}-error` : undefined} aria-invalid={Boolean(errors[name])} autoComplete={autoComplete} className="field-input" disabled={demo} id={id} maxLength={72} name={name} placeholder={placeholder} required type="password" />
+              <input aria-describedby={errors[name] ? `${id}-error` : undefined} aria-invalid={Boolean(errors[name])} autoComplete={autoComplete} className="field-input placeholder:text-[0.72rem]" disabled={demo} id={id} maxLength={72} name={name} placeholder={placeholder} required type="password" />
               {errors[name] ? <p className="mt-1.5 text-xs text-[#8a3a3a]" id={`${id}-error`}>{errors[name]}</p> : null}
             </div>
           </div>
