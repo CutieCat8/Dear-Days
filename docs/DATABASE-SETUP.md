@@ -33,7 +33,7 @@ Local email confirmation is disabled (`supabase/config.toml`).
 ## Known limits
 Invite-code guessing is not rate-limited (32^8 space). No leave-room/remove-member, invite link or generated DB types yet.
 
-## Hosted rollout checklist (nothing below has been done yet)
+## Hosted rollout checklist
 Do these in order, and stop if a check does not match.
 
 **1. Database (migrations / RLS / RPC)**
@@ -57,3 +57,13 @@ Do these in order, and stop if a check does not match.
 - [ ] `NEXT_PUBLIC_DATA_MODE=supabase`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` (public/publishable key only) in the host's env settings.
 - [ ] No service-role/secret key anywhere in the app env. `next.config.ts` derives the image host from the URL.
 - [ ] Rebuild after changing `NEXT_PUBLIC_*` (values are inlined at build time).
+
+## Hosted project log: Dear-Days (`bnukioggopvrnppxkkkk`, ap-northeast-1, Postgres 17)
+Done on 2026-10-10 with the CLI (`supabase login`, `supabase link`), never `db reset`:
+1. Identity: project name, ref and status checked; before the push it had no tables in `public`, no buckets, no migration history and no users (a fresh project).
+2. `db push --dry-run` listed exactly `20261010000000_schema`, `20261010000100_security`; then `db push` applied them. `migration list` shows local = remote.
+3. Advisor (security) flagged `anon` being able to execute the RLS helper functions, so `20261010000200_revoke_anon_helpers` was added, tested on the local stack (`test:integration` 19/19, `test:db`) and pushed. Remaining advisor warnings are the RPCs signed-in users are meant to call (`create_room`, `join_room`, `save_memory`, `upsert_tags`) and the RLS helpers, which are required by the policies.
+4. Verified read-only on hosted: RLS enabled on all 7 tables (view `room_summaries` is `security_invoker`); bucket `memory-media` private, 10485760 bytes, jpeg/png/webp; storage policies read/insert/delete; anon has no table privileges. With only the public key: `GET /rest/v1/rooms` and `rpc/is_room_member` return 42501, the bucket's public URL returns 400.
+5. App environment: copy `.env.hosted` (URL + publishable key only, gitignored) to `.env.local`, restart `npm run dev`. The local file was saved as `.env.local.local-backup` (gitignored).
+
+Not verified on hosted yet: Auth settings (Site URL / redirect URLs / email confirmation are set in the Dashboard, not by migrations), real e-mail sign-up and the browser flows. The built-in Supabase mail sender is heavily rate limited, so create test accounts sparingly or configure SMTP.
