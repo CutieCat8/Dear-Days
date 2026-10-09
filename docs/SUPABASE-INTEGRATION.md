@@ -114,6 +114,7 @@ Storage bucket `memory-media` (private): {room_id}/{memory_id}/{media_id}.{ext}
 | --- | --- | --- |
 | id | uuid | PK, FK → `auth.users(id)` on delete cascade |
 | display_name | text | not null, length 1..50 |
+| bio | text | null, length ≤ 160 |
 | avatar_url | text | null (MVP ยังไม่มี upload) |
 | created_at, updated_at | timestamptz | not null default now() |
 
@@ -233,6 +234,7 @@ RPC ควร `raise exception` ด้วยข้อความที่ data 
 create table public.profiles (
   id uuid primary key references auth.users (id) on delete cascade,
   display_name text not null check (char_length(display_name) between 1 and 50),
+  bio text check (char_length(bio) <= 160),
   avatar_url text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()

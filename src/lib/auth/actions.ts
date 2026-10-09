@@ -4,8 +4,9 @@ import type { AuthError } from "@supabase/supabase-js";
 import { redirect } from "next/navigation";
 import type { z } from "zod";
 
-import { signInSchema, signUpSchema } from "@/lib/contracts/schemas";
+import { changePasswordSchema, signInSchema, signUpSchema } from "@/lib/contracts/schemas";
 import type { DataError } from "@/lib/contracts/types";
+import { mockDb } from "@/lib/data/mock-store";
 import { isMockAuthMode } from "@/lib/supabase/config";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -107,6 +108,45 @@ export async function signUpAction(_prev: AuthFormState, formData: FormData): Pr
   }
 
   redirect(next);
+}
+
+export type ChangePasswordState = { error?: DataError; done?: boolean };
+
+const WRONG_CURRENT_PASSWORD: DataError = {
+  code: "VALIDATION_ERROR",
+  message: "Please check the highlighted fields.",
+  field_errors: { current_password: ["Current password is incorrect"] },
+};
+
+export async function changePasswordAction(_prev: ChangePasswordState, formData: FormData): Promise<ChangePasswordState> {
+  const parsed = changePasswordSchema.safeParse(readForm(formData, ["current_password", "new_password", "confirm_password"]));
+  if (!parsed.success) return { error: validationError(parsed.error) };
+  const { current_password, new_password } = parsed.data;
+
+  if (isMockAuthMode()) {
+    // Mock mode keeps a fake password in memory so the form can be exercised without Supabase.
+    const db = mockDb();
+    if (current_password !== db.currentUserPassword) return { error: WRONG_CURRENT_PASSWORD };
+    db.currentUserPassword = new_password;
+    return { done: true };
+  }
+
+  let supabase;
+  try {
+    supabase = await createSupabaseServerClient();
+  } catch {
+    return { error: NOT_CONFIGURED };
+  }
+  const { data } = await supabase.auth.getClaims();
+  const email = data?.claims?.email;
+  if (!email) return { error: { code: "UNAUTHENTICATED", message: "Please sign in again." } };
+
+  // updateUser() does not check the old password, so verify it first by signing in with it.
+  const verify = await supabase.auth.signInWithPassword({ email, password: current_password });
+  if (verify.error) return { error: verify.error.code === "invalid_credentials" ? WRONG_CURRENT_PASSWORD : mapAuthError(verify.error) };
+  const { error } = await supabase.auth.updateUser({ password: new_password });
+  if (error) return { error: mapAuthError(error) };
+  return { done: true };
 }
 
 export async function signOutAction() {

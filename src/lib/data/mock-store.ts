@@ -6,6 +6,9 @@ import type { Memory, Profile, Room, RoomMembership, Tag } from "@/lib/contracts
 // TODO(R6): delete this file once every data function reads Supabase.
 type MockDb = {
   currentUserId: string;
+  currentUserEmail: string;
+  /** Mock-only password for the change-password form. Never used when Supabase is configured. */
+  currentUserPassword: string;
   profiles: Profile[];
   rooms: Room[];
   memberships: RoomMembership[];
@@ -18,6 +21,8 @@ const globalStore = globalThis as typeof globalThis & { __dearDaysMockDb?: MockD
 export function mockDb(): MockDb {
   globalStore.__dearDaysMockDb ??= structuredClone({
     currentUserId: mockCurrentProfile.id,
+    currentUserEmail: "sea@example.com",
+    currentUserPassword: "mock-password",
     profiles: mockProfiles,
     rooms: mockRooms,
     memberships: mockMemberships,

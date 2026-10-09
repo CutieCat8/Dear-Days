@@ -1,43 +1,116 @@
+import Image from "next/image";
+
+import { ChangePasswordForm } from "@/components/features/profile/change-password-form";
+import { MoodOverview } from "@/components/features/profile/mood-overview";
 import { ProfileForm } from "@/components/features/profile/profile-form";
 import { Breadcrumbs } from "@/components/shared/breadcrumbs";
-import { LockIcon, UsersIcon } from "@/components/shared/icons";
+import { HomeIcon, LockIcon, LogOutIcon, ShieldIcon, UsersIcon } from "@/components/shared/icons";
+import { DEFAULT_ROOM_COVER_IMAGE } from "@/components/shared/room-cover";
 import { signOutAction } from "@/lib/auth/actions";
 import { unwrapForPage } from "@/lib/data/page-guards";
-import { getCurrentProfile, getProfileStats } from "@/lib/data/profile";
+import { getAccountEmail, getCurrentProfile, getMoodOverview, getProfileStats } from "@/lib/data/profile";
+import { MOOD_OVERVIEW_RANGES, type MoodOverviewRange } from "@/lib/data/profile-types";
 
-export default async function ProfilePage() {
-  const [profileResult, statsResult] = await Promise.all([getCurrentProfile(), getProfileStats()]);
+type ProfilePageProps = {
+  searchParams: Promise<{ months?: string }>;
+};
+
+const PRIVACY_POINTS = [
+  { icon: HomeIcon, title: "Rooms are private", text: "Each room is visible only to the owner and one invited member." },
+  { icon: UsersIcon, title: "Just the two of you", text: "A room can have an owner (you) and one invited member. No public sharing, no social feed, no likes." },
+  { icon: ShieldIcon, title: "Your content stays yours", text: "Your photos, notes and memories are kept private and only accessible by you and your invited member." },
+];
+
+function parseRange(value: string | undefined): MoodOverviewRange {
+  const months = Number(value);
+  return (MOOD_OVERVIEW_RANGES as readonly number[]).includes(months) ? (months as MoodOverviewRange) : 3;
+}
+
+export default async function ProfilePage({ searchParams }: ProfilePageProps) {
+  const { months } = await searchParams;
+  const [profileResult, emailResult, statsResult, moodResult] = await Promise.all([
+    getCurrentProfile(),
+    getAccountEmail(),
+    getProfileStats(),
+    getMoodOverview(parseRange(months)),
+  ]);
   const profile = unwrapForPage(profileResult);
+  const email = unwrapForPage(emailResult);
   const stats = statsResult.ok ? statsResult.data : null;
 
   return (
     <div>
       <Breadcrumbs items={[{ label: "Home", href: "/" }, { label: "Profile" }]} />
-      <header className="flex items-center gap-4">
-        <span aria-hidden="true" className="font-display flex size-16 items-center justify-center rounded-full bg-[var(--color-green)] text-2xl text-white">{profile.display_name.charAt(0).toUpperCase()}</span>
-        <div>
-          <h1 className="title-xl">{profile.display_name}</h1>
-          <p className="text-sm text-[var(--color-muted)]">
-            {stats
-              ? `${stats.rooms} ${stats.rooms === 1 ? "room" : "rooms"} · ${stats.memories} ${stats.memories === 1 ? "memory" : "memories"} written`
-              : "Collecting ordinary, lovely days — one photo at a time."}
-          </p>
+
+      <header>
+        {/* TODO(R7): custom cover and avatar uploads need Storage; until then the default cover and initials are shown. */}
+        <div className="relative h-32 overflow-hidden rounded-[var(--radius-lg)] bg-[var(--color-sage)] sm:h-40">
+          <Image alt="" className="object-cover" fill priority sizes="(max-width: 1024px) 100vw, 1100px" src={DEFAULT_ROOM_COVER_IMAGE} />
+          <p aria-hidden="true" className="font-display absolute bottom-4 right-6 hidden -rotate-6 text-2xl italic leading-tight text-white/90 drop-shadow sm:block">Good days<br />&nbsp;&nbsp;live here</p>
+        </div>
+        <div className="flex flex-col gap-3 px-2 sm:flex-row sm:items-end sm:gap-5 sm:px-8">
+          <span aria-hidden="true" className="font-display relative z-10 -mt-12 flex size-24 shrink-0 self-start items-center justify-center overflow-hidden rounded-full border-4 border-[var(--color-paper)] bg-[var(--color-green)] text-4xl text-white shadow-[var(--shadow-soft)] sm:-mt-16 sm:size-32">
+            {profile.avatar_url ? (
+              // eslint-disable-next-line @next/next/no-img-element -- signed Storage URLs are not optimizable
+              <img alt="" className="size-full object-cover" src={profile.avatar_url} />
+            ) : profile.display_name.charAt(0).toUpperCase()}
+          </span>
+          <div className="min-w-0 pb-1">
+            <h1 className="title-xl">{profile.display_name}</h1>
+            <p className="truncate text-sm text-[var(--color-muted)]">{email}</p>
+            {profile.bio ? <p className="mt-1 max-w-md text-xs leading-5 text-[var(--color-muted)]">{profile.bio}</p> : null}
+          </div>
+          {stats ? (
+            <dl className="flex gap-6 pb-1 sm:ml-auto">
+              {[{ label: "memories", value: stats.memories }, { label: "rooms", value: stats.rooms }].map(({ label, value }) => (
+                <div className="flex flex-col-reverse items-center" key={label}>
+                  <dt className="text-[0.7rem] text-[var(--color-muted)]">{label}</dt>
+                  <dd className="font-display text-xl leading-tight text-[var(--color-green-deep)]">{value}</dd>
+                </div>
+              ))}
+            </dl>
+          ) : null}
         </div>
       </header>
 
-      <div className="mt-6 grid gap-5 lg:grid-cols-2">
-        <ProfileForm displayName={profile.display_name} />
-
-        <section className="panel grid content-start gap-4 p-5">
-          <h2 className="title-md flex items-center gap-2"><LockIcon className="size-4" /> Your privacy</h2>
-          <ul className="grid gap-3 text-sm">
-            <li className="flex gap-3"><LockIcon className="mt-0.5 size-4 shrink-0 text-[var(--color-sage-strong)]" /><span><b className="block text-[0.85rem] text-[var(--color-green-deep)]">Rooms are private</b><span className="text-xs text-[var(--color-muted)]">Each room is visible only to its owner and one invited member.</span></span></li>
-            <li className="flex gap-3"><UsersIcon className="mt-0.5 size-4 shrink-0 text-[var(--color-sage-strong)]" /><span><b className="block text-[0.85rem] text-[var(--color-green-deep)]">Just the two of you</b><span className="text-xs text-[var(--color-muted)]">No public sharing, no social feed.</span></span></li>
-          </ul>
-          <form action={signOutAction}>
-            <button className="btn btn-secondary" type="submit">Sign out</button>
-          </form>
+      <div className="mt-6 grid gap-5 lg:grid-cols-[1.1fr_1fr]">
+        <section className="panel grid content-start gap-6 p-5 sm:p-6">
+          <ProfileForm bio={profile.bio} displayName={profile.display_name} email={email} />
+          <hr className="border-[var(--color-border)]" />
+          <ChangePasswordForm />
         </section>
+
+        <div className="grid content-start gap-5">
+          <section aria-labelledby="privacy-title" className="panel grid gap-4 p-5">
+            <div>
+              <h2 className="title-md flex items-center gap-2" id="privacy-title"><LockIcon className="size-4" /> Your privacy</h2>
+              <p className="mt-1 text-xs text-[var(--color-muted)]">Dear Days is designed to be a private space for your personal memories.</p>
+            </div>
+            <ul className="grid gap-3.5">
+              {PRIVACY_POINTS.map(({ icon: Icon, title, text }) => (
+                <li className="flex gap-3" key={title}>
+                  <span aria-hidden="true" className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-[var(--color-sage)]/70 text-[var(--color-green-deep)]"><Icon className="size-5" /></span>
+                  <span><b className="block text-[0.85rem] text-[var(--color-green-deep)]">{title}</b><span className="text-xs text-[var(--color-muted)]">{text}</span></span>
+                </li>
+              ))}
+            </ul>
+          </section>
+
+          {moodResult.ok ? <MoodOverview overview={moodResult.data} /> : null}
+
+          <section className="panel flex flex-wrap items-center justify-between gap-3 p-5">
+            <div className="flex items-start gap-3">
+              <LogOutIcon className="mt-0.5 size-5 text-[var(--color-green-deep)]" />
+              <div>
+                <h2 className="title-md">Sign out</h2>
+                <p className="text-xs text-[var(--color-muted)]">You can always sign in again to access your rooms and memories.</p>
+              </div>
+            </div>
+            <form action={signOutAction}>
+              <button className="btn btn-secondary btn-sm border-[var(--color-danger)]/50 text-[var(--color-danger)]" type="submit">Sign out</button>
+            </form>
+          </section>
+        </div>
       </div>
     </div>
   );

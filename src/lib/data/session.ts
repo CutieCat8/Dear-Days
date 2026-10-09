@@ -10,6 +10,14 @@ export async function getSessionUserId(): Promise<string | null> {
   return mockDb().currentUserId;
 }
 
+/**
+ * Email of the signed-in user. Email lives in Supabase Auth, not in `profiles`, and is shown only to its owner.
+ * TODO(R6): return `claims.email` from `auth.getClaims()`.
+ */
+export async function getSessionEmail(): Promise<string | null> {
+  return mockDb().currentUserEmail;
+}
+
 /** Owner or member of the room. Room membership data is owned by R9; this read-only check is shared. */
 export function isRoomMember(roomId: string, userId: string) {
   const db = mockDb();

@@ -13,6 +13,7 @@ export const roomRoleSchema = z.enum(ROOM_ROLES);
 export const roomThemeSchema = z.enum(ROOM_THEMES);
 
 const displayNameSchema = z.string().trim().min(1, "Please enter a display name").max(50);
+const bioSchema = z.string().trim().max(160, "Keep it to 160 characters or fewer");
 const roomDescriptionSchema = z.string().trim().max(300);
 
 export const inviteCodeSchema = z.string().trim().toUpperCase()
@@ -21,6 +22,7 @@ export const inviteCodeSchema = z.string().trim().toUpperCase()
 export const profileSchema = z.object({
   id: idSchema,
   display_name: displayNameSchema,
+  bio: bioSchema.nullable(),
   avatar_url: z.string().min(1).nullable(),
   created_at: timestampSchema,
   updated_at: timestampSchema,
@@ -115,6 +117,7 @@ export const roomInputSchema = z.object({
 
 export const profileInputSchema = z.object({
   display_name: displayNameSchema,
+  bio: bioSchema.nullable(),
 });
 
 const emailSchema = z.string().trim().toLowerCase().email("Enter a valid email address").max(254);
@@ -122,6 +125,19 @@ const emailSchema = z.string().trim().toLowerCase().email("Enter a valid email a
 export const signInSchema = z.object({
   email: emailSchema,
   password: z.string().min(1, "Please enter your password").max(72),
+});
+
+export const changePasswordSchema = z.object({
+  current_password: z.string().min(1, "Please enter your current password").max(72),
+  new_password: z.string().min(8, "Use at least 8 characters").max(72, "Use 72 characters or fewer"),
+  confirm_password: z.string(),
+}).superRefine((value, context) => {
+  if (value.new_password !== value.confirm_password) {
+    context.addIssue({ code: "custom", path: ["confirm_password"], message: "Passwords do not match" });
+  }
+  if (value.new_password && value.new_password === value.current_password) {
+    context.addIssue({ code: "custom", path: ["new_password"], message: "Choose a password you haven't used here" });
+  }
 });
 
 // Supabase Auth hashes passwords with bcrypt, which ignores bytes after 72.

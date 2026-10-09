@@ -2,6 +2,7 @@ import type { z } from "zod";
 
 import type {
   appErrorCodeSchema,
+  changePasswordSchema,
   mediaMutationSchema,
   memoryInputSchema,
   memoryListParamsSchema,
@@ -35,6 +36,7 @@ export type Profile = z.infer<typeof profileSchema>;
 export type ProfileInput = z.infer<typeof profileInputSchema>;
 export type SignInInput = z.infer<typeof signInSchema>;
 export type SignUpInput = z.infer<typeof signUpSchema>;
+export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
 export type Memory = z.infer<typeof memorySchema>;
 export type MemoryMedia = z.infer<typeof memoryMediaSchema>;
 export type Tag = z.infer<typeof tagSchema>;

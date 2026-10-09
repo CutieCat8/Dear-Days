@@ -38,6 +38,7 @@
 type Profile = {
   id: string;                 // UUID เดียวกับ auth user id
   display_name: string;       // 1..50
+  bio: string | null;         // 0..160, "About you" ในหน้า Profile
   avatar_url: string | null;  // MVP ยังไม่มี upload avatar; UI ใช้ตัวอักษรแรกแทนเมื่อเป็น null
   created_at: string;
   updated_at: string;
@@ -45,10 +46,13 @@ type Profile = {
 
 type ProfileInput = {
   display_name: string;       // แก้ได้เฉพาะ profile ของตัวเอง
+  bio: string | null;
 };
 ```
 
-ทุก user ต้องมี profile หนึ่งแถว (สร้างตอนสมัคร — ซีกำหนดกลไกใน R2) Profile ไม่มี email; email อยู่ใน Supabase Auth เท่านั้นและไม่ส่งให้สมาชิกคนอื่น
+ทุก user ต้องมี profile หนึ่งแถว (สร้างตอนสมัคร — ซีกำหนดกลไกใน R2) เปลี่ยนรหัสผ่านใช้ `changePasswordSchema` (`current_password`, `new_password` 8..72, `confirm_password` ต้องตรงกัน) ผ่าน Supabase Auth ไม่เกี่ยวกับตาราง
+
+Profile ไม่มี email; email อยู่ใน Supabase Auth เท่านั้นและไม่ส่งให้สมาชิกคนอื่น
 
 ### Room
 
