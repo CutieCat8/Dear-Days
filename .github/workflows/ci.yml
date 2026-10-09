@@ -1,0 +1,58 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+# Read-only token: the workflow only checks code. No deployment and no database changes happen here.
+permissions:
+  contents: read
+
+# A new commit on a pull request cancels the older run of that PR. Runs on main are never cancelled.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  checks:
+    # This job name is the status check to require in the main ruleset.
+    name: checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      # The build needs no secrets: demo (mock) data mode never contacts Supabase.
+      # No hosted project, production key or service-role key is available to this workflow.
+      NEXT_PUBLIC_DATA_MODE: mock
+      NEXT_TELEMETRY_DISABLED: "1"
+      CI: "true"
+    steps:
+      - name: Check out the code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22 # package.json engines: node >= 20.9.0
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Type check
+        run: npm run typecheck
+
+      - name: Validate fixtures
+        run: npm run check:fixtures
+
+      - name: Unit tests
+        run: npm run test:unit
+
+      - name: Build
+        run: npm run build
