@@ -14,9 +14,11 @@ type MuseumRoomProps = {
   memories: Memory[];
   /** All memories in the room (can be more than the ones loaded for the scene). */
   total?: number;
+  /** Only the owner can edit the room. */
+  canEditRoom?: boolean;
 };
 
-export function MuseumRoom({ room, memories, total = memories.length }: MuseumRoomProps) {
+export function MuseumRoom({ room, memories, total = memories.length, canEditRoom = false }: MuseumRoomProps) {
   const basePath = `/rooms/${room.id}`;
 
   return (
@@ -34,7 +36,7 @@ export function MuseumRoom({ room, memories, total = memories.length }: MuseumRo
         <div className="flex flex-wrap gap-2 lg:pointer-events-auto">
           <ActionLink href={`${basePath}/memories/new`} icon={<PlusIcon className="size-4" />}>Add memory</ActionLink>
           <ActionLink href={`${basePath}/gallery`} icon={<GridIcon className="size-4" />} variant="secondary">Gallery view</ActionLink>
-          <Link aria-label="Edit room" className="btn btn-secondary px-3" href={`${basePath}/edit`}><EditIcon className="size-4" /></Link>
+          {canEditRoom ? <Link aria-label="Edit room" className="btn btn-secondary px-3" href={`${basePath}/edit`}><EditIcon className="size-4" /></Link> : null}
         </div>
       </header>
 

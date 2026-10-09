@@ -1,6 +1,6 @@
 import { MuseumRoom } from "@/components/features/museum/museum-room";
 import type { Memory } from "@/lib/contracts/types";
-import { getDataSource } from "@/lib/data/server";
+import { getDataSource, getViewer } from "@/lib/data/server";
 import { unwrap } from "@/lib/data/unwrap";
 
 type RoomPageProps = {
@@ -24,5 +24,6 @@ export default async function RoomPage({ params }: RoomPageProps) {
     if (!result.has_more) break;
   }
 
-  return <MuseumRoom memories={memories} room={room} total={total} />;
+  const viewer = await getViewer();
+  return <MuseumRoom canEditRoom={viewer?.user_id === room.owner_id} memories={memories} room={room} total={total} />;
 }
