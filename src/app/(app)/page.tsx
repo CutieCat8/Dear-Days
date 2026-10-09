@@ -31,17 +31,15 @@ export default function HomePage() {
     <Breadcrumbs items={[{ label: "02 Home", href: "/" }, { label: "Home" }]} />
     <div className="grid gap-7 xl:grid-cols-[1fr_18rem]">
       <div className="min-w-0">
-        <header>
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <h1 className="title-xl">Your memories</h1>
-            <div className="flex gap-2">
-              <Link className="btn btn-primary" href="/rooms/new"><PlusIcon className="size-4" /> Create room</Link>
-              <Link className="btn btn-secondary" href="/rooms/join"><UsersIcon className="size-4" /> Join room</Link>
-            </div>
-          </div>
-          <p className="font-display mt-1 flex items-center gap-1.5 text-lg text-[var(--color-sage-strong)]">
+        <header className="grid gap-y-1 sm:grid-cols-[1fr_auto] sm:items-center sm:gap-x-3">
+          <h1 className="title-xl sm:col-start-1 sm:row-start-1">Your memories</h1>
+          <p className="font-display flex items-center gap-1.5 text-lg text-[var(--color-sage-strong)] sm:col-start-1 sm:row-start-2">
             Welcome back, Sea <LeafIcon className="size-4" />
           </p>
+          <div className="mt-3 flex justify-self-end gap-2 sm:col-start-2 sm:row-start-1 sm:mt-0">
+            <Link className="btn btn-primary" href="/rooms/new"><PlusIcon className="size-4" /> Create room</Link>
+            <Link className="btn btn-secondary" href="/rooms/join"><UsersIcon className="size-4" /> Join room</Link>
+          </div>
         </header>
 
         <section aria-labelledby="rooms-heading" className="mt-8 scroll-mt-6" id="rooms">

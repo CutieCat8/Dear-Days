@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useMemo, useState, type ReactNode } from "react";
 
-import { FolderIcon, GridIcon, HomeIcon, LeafIcon, UserIcon, UsersIcon } from "@/components/shared/icons";
+import { DoorIcon, GridIcon, HomeIcon, LeafIcon, UserIcon, UsersIcon } from "@/components/shared/icons";
 
 import { SceneHostContext } from "./scene-host";
 
@@ -22,7 +22,7 @@ export function AppShell({ children, galleryHref, userName }: AppShellProps) {
   const sceneHost = useMemo(() => ({ host, setImmersive }), [host]);
   const items = [
     { href: "/", label: "Home", icon: HomeIcon, active: pathname === "/" },
-    { href: "/rooms", label: "My rooms", icon: FolderIcon, active: pathname.startsWith("/rooms") && !pathname.endsWith("/gallery") && pathname !== "/rooms/join" },
+    { href: "/rooms", label: "My rooms", icon: DoorIcon, active: pathname.startsWith("/rooms") && !pathname.endsWith("/gallery") && pathname !== "/rooms/join" },
     { href: galleryHref, label: "Gallery", icon: GridIcon, active: pathname.endsWith("/gallery") },
     { href: "/rooms/join", label: "Join room", icon: UsersIcon, active: pathname === "/rooms/join" },
     { href: "/profile", label: "Profile", icon: UserIcon, active: pathname === "/profile" },

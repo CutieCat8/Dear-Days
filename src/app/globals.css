@@ -15,6 +15,10 @@
   /* Brand — forest green & sage */
   --color-green: #2f5a4a;
   --color-green-deep: #1f4136;
+
+  /* Buttons */
+  --color-button: #344c3d;
+  --color-button-hover: #283b30;
   --color-sage: #dde6d9;
   --color-sage-strong: #5d7765;
 
@@ -234,13 +238,13 @@ label {
   }
 
   .btn-primary {
-    background: var(--color-green);
+    background: var(--color-button);
     color: #fff;
     box-shadow: 0 1px 2px rgb(31 65 54 / 0.25), 0 4px 10px rgb(47 90 74 / 0.18);
   }
 
   .btn-primary:hover {
-    background: var(--color-green-deep);
+    background: var(--color-button-hover);
   }
 
   .btn-secondary {

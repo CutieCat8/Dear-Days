@@ -36,6 +36,16 @@ export function HomeIcon(props: IconProps) {
   return <IconBase {...props}><path d="m4 11 8-7 8 7v8.5a1 1 0 0 1-1 1h-4v-6H9v6H5a1 1 0 0 1-1-1V11Z" {...stroke} /></IconBase>;
 }
 
+export function DoorIcon(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <path d="M6.5 20V5.5a1.5 1.5 0 0 1 1.5-1.5h8a1.5 1.5 0 0 1 1.5 1.5V20" {...stroke} />
+      <path d="M4 20h16" {...stroke} />
+      <circle cx="14.2" cy="12.4" fill="currentColor" r="0.9" />
+    </IconBase>
+  );
+}
+
 export function FolderIcon(props: IconProps) {
   return <IconBase {...props}><path d="M3.5 7a2 2 0 0 1 2-2h4l2 2.2h7a2 2 0 0 1 2 2V17a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2V7Z" {...stroke} /></IconBase>;
 }
@@ -126,4 +136,8 @@ export function TrashIcon(props: IconProps) {
 
 export function StarIcon(props: IconProps) {
   return <IconBase {...props}><path d="m12 4 2.4 5 5.4.7-4 3.8 1 5.4L12 16.2 7.2 18.9l1-5.4-4-3.8 5.4-.7L12 4Z" {...stroke} /></IconBase>;
+}
+
+export function ChevronDownIcon(props: IconProps) {
+  return <IconBase {...props}><path d="m6 9 6 6 6-6" {...stroke} /></IconBase>;
 }
