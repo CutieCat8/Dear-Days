@@ -31,14 +31,14 @@ export const PALETTE = {
 export const CAMERA = {
   /** Overview azimuth around the Y axis (45° = corner view) and the allowed orbit either side of it. */
   azimuthDeg: 45,
-  orbitRangeDeg: 30,
+  orbitRangeDeg: 20,
   /** Overview elevation above the floor plane (locked: no orbit in elevation). */
   elevationDeg: 30,
   distance: 40,
   /** Share of the stage height the room's projected bounds use in the default overview. */
   overviewFill: 0.84,
   /** Where the projected room's centre sits in the viewport (fractions of width / height from the top-left). */
-  overviewCenterX: 0.6,
+  overviewCenterX: 0.54, // was 0.60: shifted left by 6% of the width = three presses of the left arrow (2% each)
   overviewCenterY: 0.52,
   /** Zoom limits, relative to the fitted zoom of the current view. */
   minZoom: 0.8,

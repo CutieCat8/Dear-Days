@@ -28,6 +28,8 @@
 - รูปตัวอย่าง `public/mock/museum/photo-01..15.jpg` มาจาก Lorem Picsum (ภาพจาก Unsplash, Unsplash License) พร้อมชื่อผู้ถ่ายใน `public/mock/museum/CREDITS.md`
 - ไม่ใช้ GLB/texture ภายนอก: ทุก texture/geometry สร้างด้วยโค้ด (ยังเป็นสไตล์ geometry ไม่ใช่ PBR scan)
 
+> ระบบ Room Theme บนฉาก 3D ถูกเอาออกตามที่ซีสั่ง: `room.theme` ใน contract ยังอยู่ และ New Room ยังมีตัวเลือกธีมแบบเดิม (ใช้กับ cover เท่านั้น) ฉาก 3D กลับไปใช้พาเลตเดียวเหมือนก่อนเพิ่มธีม
+
 ## รอบที่ 6: ห้องยื่นใต้ aside + pan + tilt + cursor-anchored zoom (ล่าสุด)
 
 **สาเหตุจริงที่ห้องไม่ยื่นใต้ aside**: ตรวจ DOM แล้ว CSS ถูกอยู่แล้ว — canvas กว้างเต็ม main (วัดได้ 1635px ที่ viewport 1920 และ aside เป็น `position:absolute` ใน parent เดียวกัน ไม่มี grid/padding/margin เว้นให้ aside) ปัญหาเป็นที่ **camera framing อย่างเดียว**: overview วางห้องกึ่งกลาง canvas และ fit จากความสูง ห้องจึงกว้างแค่ ~700px และขอบขวาไปแตะซ้ายของ aside เพียง ~45px (ที่ 1440) ตอนนี้ overview มี baseline offset ในแนวนอน (`overviewBaseOffset()` ใน `camera-controller.tsx`) ให้ขอบขวาห้องยื่นเลยขอบซ้าย aside 130px (clamp ให้ขอบซ้ายห่างขอบ canvas ≥24px) ตรวจแล้วที่ 1440×900 และ 1920×1080: aside เปิด/ปิดแล้วตำแหน่ง/ขนาดห้องเท่าเดิม, ห้องส่วนขวาอยู่ใต้ aside จริง, ขอบบนเห็นครบ (framing/zoom เดิม 88% ของความสูง)

@@ -71,6 +71,9 @@ export const RoomShell = memo(function RoomShell() {
       <Bevel args={[HX * 2 - 0.07, 0.03, 0.07]} material={m.baseboard} position={[0.035, BB + 0.01, -HZ + 0.035]} radius={0.012} />
       </group>
 
+      {/* inner corner seam: a hairline, like the seams between floor planks, where the two walls meet, so the corner reads with depth */}
+      <Bevel args={[0.012, WH - BB, 0.012]} cast={false} material={m.cornerLine} position={[-HX + 0.006, BB + (WH - BB) / 2, -HZ + 0.006]} radius={0.002} smoothness={1} />
+
       <ContactShadows blur={2.4} far={3.2} opacity={0.4} position={[CX, 0.006, CZ]} resolution={1024} scale={[SPAN_X + 0.5, SPAN_Z + 0.5]} />
 
       {/* Ground: only draws shadows (room + outside foliage), so it has no visible edge on the page background. */}

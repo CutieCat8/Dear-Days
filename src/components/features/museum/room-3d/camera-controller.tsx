@@ -119,11 +119,10 @@ export function CameraController({ children, apiRef, onStateChange, getLayout }:
       const { width, height } = sizeRef.current;
       return Math.min((CAMERA.overviewFill * height) / defaultBounds.height, (width - 2 * EDGE_PX) / defaultBounds.width);
     };
-    /** Reading area for wall focus: the stage minus the aside (always reserved), in canvas px. */
+    /** Wall focus area: the page's content box (the stage inside main's padding), centred; the aside floats over it. */
     const readingArea = () => {
-      const { stage, panelWidth } = layoutRef.current();
-      const width = Math.max(200, stage.width - panelWidth - CAMERA.panelGapPx);
-      return { left: stage.left, top: stage.top, width, height: stage.height };
+      const { stage } = layoutRef.current();
+      return { left: stage.left, top: stage.top, width: Math.max(200, stage.width), height: stage.height };
     };
     const wallBase = (side: WallSide) => {
       const area = readingArea();
@@ -247,7 +246,13 @@ export function CameraController({ children, apiRef, onStateChange, getLayout }:
       back,
       reset: () => {
         const s = S.current;
-        if (s.mode !== "overview") return back();
+        if (s.mode !== "overview") {
+          // wall focus: back to the default straight-on framing of this wall (stays in wall focus)
+          s.wallRel = 1;
+          s.wallPan.set(0, 0, 0);
+          invalidate();
+          return;
+        }
         s.azGoal = CAMERA.azimuthDeg;
         s.tiltGoal = 0;
         s.rel = 1;
@@ -314,7 +319,8 @@ export function CameraController({ children, apiRef, onStateChange, getLayout }:
     const onDown = (event: PointerEvent) => {
       if (event.button > 2) return;
       pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
-      if (pointers.size === 1) dragMode = event.button === 2 || event.shiftKey ? "pan" : "orbit";
+      // wall focus has no orbit (the view stays square to the wall), so a plain drag slides the wall up/down/sideways
+      if (pointers.size === 1) dragMode = event.button === 2 || event.shiftKey || S.current.mode !== "overview" ? "pan" : "orbit";
       if (pointers.size === 2) {
         const [a, b] = [...pointers.values()];
         pinch = Math.hypot(a.x - b.x, a.y - b.y);

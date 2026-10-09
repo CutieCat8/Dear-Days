@@ -59,7 +59,7 @@ export const Furniture = memo(function Furniture() {
       <SideTable m={m} position={[2.0, 0, 3.15]} />
 
       <Plant leafCount={13} pot="ceramic" position={[-1.55, 0, 3.25]} potHeight={0.55} potRadius={0.3} seed={4} />
-      <Plant leaf={[0.55, 0.8]} leafCount={12} occluder pot="stone" position={[-1.3, 0, -3.4]} potHeight={0.6} potRadius={0.3} seed={9} stem={[0.6, 1.2]} />
+      <Plant leaf={[0.55, 0.8]} leafCount={12} occluder pot="stone" position={[-0.55, 0, -3.4]} potHeight={0.6} potRadius={0.3} seed={9} stem={[0.6, 1.1]} />
       <Plant leaf={[0.2, 0.36]} leafCount={10} pot="terracotta" position={[-2.0, 0, 2.45]} potHeight={0.4} potRadius={0.17} seed={29} stem={[0.25, 0.65]} />
       <Plant leaf={[0.18, 0.3]} leafCount={8} pot="ceramic" position={[2.1, 0.8, -3.6]} potHeight={0.2} potRadius={0.1} seed={13} stem={[0.12, 0.3]} />
       <Plant leaf={[0.22, 0.34]} leafCount={9} pot="terracotta" position={[2.0, 0.46, 3.15]} potHeight={0.22} potRadius={0.14} seed={17} stem={[0.15, 0.35]} />
