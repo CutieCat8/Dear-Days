@@ -1,13 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useRef, useState, useSyncExternalStore, type FormEvent, type KeyboardEvent } from "react";
 
 import { Breadcrumbs } from "@/components/shared/breadcrumbs";
 import { CalendarIcon, CameraIcon, CloseIcon, EditIcon, FrownIcon, GripIcon, InfoIcon, LeafIcon, LockIcon, MehIcon, PinIcon, SearchIcon, SmileIcon, SparkleIcon, StarIcon, TrashIcon, UsersIcon } from "@/components/shared/icons";
 import { MEDIA_CONSTRAINTS, MOOD_LABELS, MOODS } from "@/lib/contracts/constants";
-import { mockTags } from "@/lib/contracts/fixtures";
-import type { Memory, Mood, Room } from "@/lib/contracts/types";
+import type { Memory, MemoryInput, Mood, NewMediaUpload, Room, Tag } from "@/lib/contracts/types";
+import { createBrowserDataSource } from "@/lib/data/browser";
+import { localDateString } from "@/lib/local-date";
 
 type MemoryFormProps = {
   mode: "create" | "edit";
@@ -16,6 +18,8 @@ type MemoryFormProps = {
   /** Rooms the user can post to. Only used when creating. */
   rooms?: Room[];
   memory?: Memory;
+  /** Existing tags of the rooms above, offered as suggestions (reused case-insensitively by the database). */
+  tags?: Tag[];
 };
 
 type Photo = { id: string; url: string; name: string; error?: string; file?: File };
@@ -23,18 +27,27 @@ type Photo = { id: string; url: string; name: string; error?: string; file?: Fil
 const MOOD_ICONS: Record<Mood, typeof SmileIcon> = { awful: FrownIcon, stressed: MehIcon, sad: FrownIcon, relaxed: LeafIcon, happy: SmileIcon, excited: SparkleIcon };
 const MAX_BODY = 10_000;
 
-export function MemoryForm({ mode, room: initialRoom, rooms = [initialRoom], memory }: MemoryFormProps) {
+const subscribeNever = () => () => {};
+
+export function MemoryForm({ mode, room: initialRoom, rooms = [initialRoom], memory, tags: knownTags = [] }: MemoryFormProps) {
+  const router = useRouter();
+  const [formError, setFormError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
+  const [saving, setSaving] = useState(false);
   const isEdit = mode === "edit";
   const [roomId, setRoomId] = useState(initialRoom.id);
   const room = rooms.find((item) => item.id === roomId) ?? initialRoom;
   const [title, setTitle] = useState(memory?.title ?? "");
-  const [date, setDate] = useState(memory?.memory_date ?? new Date().toISOString().slice(0, 10));
+  // The server renders in its own time zone: the default day is read on the device (the person's local day), "" while hydrating.
+  const today = useSyncExternalStore(subscribeNever, () => localDateString(), () => "");
+  const [pickedDate, setDate] = useState<string | null>(memory?.memory_date ?? null);
+  const date = pickedDate ?? today;
   const [body, setBody] = useState(memory?.body ?? "");
   const [mood, setMood] = useState<Mood | null>(memory?.mood ?? null);
   const [people, setPeople] = useState(memory?.tags.filter((tag) => tag.type === "person").map((tag) => tag.label) ?? []);
   const [places, setPlaces] = useState(memory?.tags.filter((tag) => tag.type === "place").map((tag) => tag.label) ?? []);
   const [photos, setPhotos] = useState<Photo[]>(
-    memory?.media.filter((item) => item.signed_url).map((item) => ({ id: item.id, url: item.signed_url as string, name: item.alt_text })) ?? [],
+    memory?.media.map((item) => ({ id: item.id, url: item.signed_url ?? "", name: item.alt_text })) ?? [],
   );
   const [photoError, setPhotoError] = useState<string | null>(null);
   const [coverId, setCoverId] = useState<string | null>(memory?.cover_media_id ?? null);
@@ -86,9 +99,46 @@ export function MemoryForm({ mode, room: initialRoom, rooms = [initialRoom], mem
     });
   }
 
-  // TODO(T11-T16): build MemoryInput + NewMediaUpload[] and call createMemory(room.id, ...)/updateMemory.
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  /** Builds the contract's MemoryInput + the new files, then saves through the data layer (database + private Storage). */
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    setFormError(null);
+    setFieldErrors({});
+
+    const existingIds = new Set(memory?.media.map((item) => item.id) ?? []);
+    const kept = photos.filter((photo) => !photo.file);
+    const added = photos.filter((photo): photo is Photo & { file: File } => Boolean(photo.file));
+    const reference = (photo: Photo) => (photo.file ? ({ kind: "new", client_id: photo.id } as const) : ({ kind: "existing", id: photo.id } as const));
+
+    const input: MemoryInput = {
+      title,
+      body,
+      memory_date: date,
+      mood,
+      period_label: memory?.period_label ?? null,
+      tags: [...people.map((label) => ({ type: "person" as const, label })), ...places.map((label) => ({ type: "place" as const, label }))],
+      media: {
+        existing: kept.map((photo) => ({ id: photo.id, alt_text: photo.name })),
+        added: added.map((photo) => ({ client_id: photo.id, file_name: photo.file.name, mime_type: photo.file.type as NewMediaUpload["mime_type"], size_bytes: photo.file.size, alt_text: photo.name })),
+        removed_media_ids: [...existingIds].filter((id) => !kept.some((photo) => photo.id === id)),
+        order: photos.map(reference),
+        cover: cover ? reference(cover) : null,
+      },
+    };
+    const uploads: NewMediaUpload[] = added.map((photo) => ({ client_id: photo.id, file_name: photo.file.name, mime_type: photo.file.type as NewMediaUpload["mime_type"], size_bytes: photo.file.size, alt_text: photo.name, file: photo.file }));
+
+    setSaving(true);
+    const source = createBrowserDataSource();
+    const result = isEdit && memory ? await source.updateMemory(room.id, memory.id, input, uploads) : await source.createMemory(room.id, input, uploads);
+    if (!result.ok) {
+      // everything typed and every chosen photo stays in the form so the user can simply try again
+      setFormError(result.error.message);
+      setFieldErrors(result.error.field_errors ?? {});
+      setSaving(false);
+      return;
+    }
+    router.push(`/rooms/${room.id}/memories/${result.data.id}`);
+    router.refresh();
   }
 
   return (
@@ -235,8 +285,8 @@ export function MemoryForm({ mode, room: initialRoom, rooms = [initialRoom], mem
           </div>
         </fieldset>
 
-        <TagInput icon={<UsersIcon className="size-4" />} hint="People who were part of this memory." label="People tags" noun="people" onChange={setPeople} suggestions={mockTags.filter((tag) => tag.room_id === room.id && tag.type === "person").map((tag) => tag.label)} values={people} />
-        <TagInput icon={<PinIcon className="size-4" />} hint="Places where this memory happened." label="Places tags" noun="places" onChange={setPlaces} suggestions={mockTags.filter((tag) => tag.room_id === room.id && tag.type === "place").map((tag) => tag.label)} values={places} />
+        <TagInput icon={<UsersIcon className="size-4" />} hint="People who were part of this memory." label="People tags" noun="people" onChange={setPeople} suggestions={knownTags.filter((tag) => tag.room_id === room.id && tag.type === "person").map((tag) => tag.label)} values={people} />
+        <TagInput icon={<PinIcon className="size-4" />} hint="Places where this memory happened." label="Places tags" noun="places" onChange={setPlaces} suggestions={knownTags.filter((tag) => tag.room_id === room.id && tag.type === "place").map((tag) => tag.label)} values={places} />
 
         <div>
           <label className="field-label" htmlFor="room-id">Room</label>
@@ -251,7 +301,8 @@ export function MemoryForm({ mode, room: initialRoom, rooms = [initialRoom], mem
         </div>
 
         <div className="mt-auto grid gap-3">
-          <button className="btn btn-primary" type="submit">{isEdit ? "Save changes" : "Save memory"}</button>
+          {formError ? <p className="rounded-lg bg-[#f8e3e3] px-3 py-2 text-xs text-[#8a3a3a]" role="alert">{formError}{Object.values(fieldErrors).flat()[0] ? ` (${Object.values(fieldErrors).flat()[0]})` : ""}</p> : null}
+          <button className="btn btn-primary disabled:opacity-60" disabled={saving} type="submit">{saving ? "Saving…" : isEdit ? "Save changes" : "Save memory"}</button>
           <Link className="btn btn-secondary" href={isEdit && memory ? `/rooms/${room.id}/memories/${memory.id}` : `/rooms/${room.id}`}>Cancel</Link>
         </div>
       </aside>

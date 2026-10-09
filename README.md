@@ -1,6 +1,6 @@
 # Dear Days
 
-Next.js App Router สำหรับ MVP ไดอารี่ส่วนตัวของทีม BlackJackie ปัจจุบันมี UI ของ routes หลัก, shared contracts/fixtures และ Museum room แล้ว แต่ยังไม่เชื่อม Auth, database และ Storage ของ Supabase จริง
+Next.js App Router สำหรับ MVP ไดอารี่ส่วนตัวของทีม BlackJackie ปัจจุบันมี UI ของ routes หลัก, shared contracts/fixtures และ Museum room แล้ว และมี data layer ที่เชื่อม Supabase (Auth + Postgres + private Storage) เขียนไว้แล้ว ทดสอบกับ Supabase local stack เท่านั้น ยังไม่ได้ทดสอบกับ hosted project
 
 ## เริ่มใช้งาน
 
@@ -12,7 +12,7 @@ Copy-Item .env.example .env.local
 npm run dev
 ```
 
-เปิด `http://localhost:3000` ค่า Supabase ใน `.env.local` จะจำเป็นเมื่อเริ่ม T5/T9; route skeleton และ fixtures รอบนี้รันได้โดยไม่ต้องมี project จริง ห้ามใส่ service-role key ในตัวแปร `NEXT_PUBLIC_*` หรือ commit `.env.local`
+เปิด `http://localhost:3000` ถ้าไม่ตั้งค่า Supabase แอปจะรันใน **mock mode** (ข้อมูลตัวอย่างแบบอ่านอย่างเดียว ไม่มี sign-in) ส่วน real mode ต้องตั้ง `NEXT_PUBLIC_DATA_MODE=supabase` + URL + anon key และถ้า key ขาดจะ error ไม่ fallback เป็น mock ดู [docs/DATABASE-SETUP.md](docs/DATABASE-SETUP.md) ห้ามใส่ service-role key ในตัวแปร `NEXT_PUBLIC_*` หรือ commit `.env.local`
 
 คำสั่งตรวจ:
 
@@ -20,6 +20,9 @@ npm run dev
 npm run lint
 npm run typecheck
 npm run check:fixtures
+npm run test:unit
+npm run test:db           # migrations + RLS/constraint tests บน Postgres 15 ใน Docker
+npm run test:integration  # end-to-end กับ Supabase local stack (ดู DATABASE-SETUP)
 npm run build
 ```
 
@@ -59,4 +62,5 @@ Proposal และ task breakdown เดิมอยู่ที่ root เป�
 
 ## สถานะ backend
 
-UI ปัจจุบันส่วนใหญ่ยังอ่าน mock fixtures และ form หลายจุดยังเป็น no-op ยังไม่มี migrations/RLS/Storage policies, Auth/session จริง, CRUD/data adapter, end-to-end test หรือ deployment จึงต้องทำ R0–R15 ก่อนส่งให้ซีตรวจ UI ใน R16 และให้ซี deploy/release ใน R17
+- เขียนและทดสอบแล้ว (local): migrations ใน `supabase/migrations`, RLS, RPC (`create_room`, `join_room`, `save_memory`, ...), private bucket `memory-media`, `SupabaseDataSource`, Auth ด้วย `src/proxy.ts`; ผ่าน `test:db` และ `test:integration` กับ Supabase local stack
+- ยังไม่ได้ทำ/ทดสอบ: hosted Supabase project, email confirmation จริง, ตรวจ UI ใน browser ของ real mode, Add friend dialog และ invite link `/rooms/join?code=`, ออกจากห้อง/นำสมาชิกออก, generated DB types, deployment
