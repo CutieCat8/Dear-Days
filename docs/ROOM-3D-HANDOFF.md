@@ -28,6 +28,13 @@
 - รูปตัวอย่าง `public/mock/museum/photo-01..15.jpg` มาจาก Lorem Picsum (ภาพจาก Unsplash, Unsplash License) พร้อมชื่อผู้ถ่ายใน `public/mock/museum/CREDITS.md`
 - ไม่ใช้ GLB/texture ภายนอก: ทุก texture/geometry สร้างด้วยโค้ด (ยังเป็นสไตล์ geometry ไม่ใช่ PBR scan)
 
+## Backlog
+
+- **ห้อง 3D บนจอเล็ก (<1024px)**: ตอนนี้ตั้งใจให้แสดงเป็นการ์ดแทน (ตาม proposal/UI-GUIDE) แต่ `museum-room.tsx` ยัง mount `MuseumScene` ทั้งที่ถูกซ่อนด้วย CSS (`hidden lg:flex`) จึงโหลด three/R3F เปล่า ๆ บนมือถือ
+  - ทางเลือก A (แนะนำ): ไม่ mount ฉากเมื่อ viewport < 1024px (เช็กด้วย `matchMedia`) เหลือแต่การ์ด
+  - ทางเลือก B: เปิด 3D บนมือถือจริง ต้องออกแบบปุ่มสำหรับ touch, bottom sheet แทน panel และทดสอบ pinch/drag บนอุปกรณ์จริง
+  - ยังไม่ได้ตัดสินใจ — เก็บไว้ก่อน
+
 > ระบบ Room Theme บนฉาก 3D ถูกเอาออกตามที่ซีสั่ง: `room.theme` ใน contract ยังอยู่ และ New Room ยังมีตัวเลือกธีมแบบเดิม (ใช้กับ cover เท่านั้น) ฉาก 3D กลับไปใช้พาเลตเดียวเหมือนก่อนเพิ่มธีม
 
 ## รอบที่ 6: ห้องยื่นใต้ aside + pan + tilt + cursor-anchored zoom (ล่าสุด)
@@ -114,6 +121,9 @@ Screenshots: `docs/screenshots/` — `overview-panel-closed|open-1432x734`, `wal
 - Selection: `selectedId` อยู่ใน `museum-scene.tsx` → `RoomCanvas` (`selectedId`, `onSelect`, `panelOpen`)
 - แผงขวา: `MemoryPanel` ใน `museum-scene.tsx` (HTML ล้วน อ่านจาก `Memory` ตาม contract)
 - ข้อมูลจริง: scene รับ `Memory[]` เท่านั้น `assignMemories()` คือจุดเดียวที่แมป memory → slot; จำนวนวัตถุตามข้อมูลจริง ช่องว่างซ่อน (ถ้าต้องการ "Add memory slot" ให้เพิ่มใน `display-items.tsx` + `slots.ts`)
+- ข้อมูลจริง (Supabase): หน้า `/rooms/[roomId]` โหลด memories ผ่าน data layer แล้วส่งเข้า `MuseumScene` รูปเป็น signed URL อายุ 1 ชั่วโมง; `museum/use-fresh-memories.ts` ต่ออายุก่อนหมด (เหลือ 10 นาที) และเมื่อกลับมาเปิด tab โดยเปลี่ยนเฉพาะสตริง URL ไม่ remount scene ไม่ reset กล้อง และทิ้ง URL ทั้งหมดเมื่อข้อมูลจากเซิร์ฟเวอร์เปลี่ยน (เช่นเปลี่ยนห้อง) texture ของกรอบอาจโหลดใหม่สั้น ๆ ตอนต่ออายุ (มี paper fallback)
+- ธีมห้อง (`room.theme`) ไม่ถูกนำไปใช้กับฉาก 3D ตั้งแต่ลบ theme system; ใช้กับ cover/preview เท่านั้น
+- Textures จาก Storage เป็น cross-origin: local/hosted Supabase ส่ง CORS header ให้ signed URL แล้ว ถ้าเปลี่ยน host ต้องตรวจ CORS
 - Demo data: ลบ `demo-museum.ts` + บรรทัดที่รวมใน `fixtures.ts` + `public/mock/museum/` เมื่อเชื่อมข้อมูลจริง
 
 ## งานที่ Codex ควรทำต่อ

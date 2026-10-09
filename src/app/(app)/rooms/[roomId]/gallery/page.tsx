@@ -1,6 +1,5 @@
 import Image from "next/image";
 import Link from "next/link";
-import { notFound } from "next/navigation";
 
 import { CalendarStack } from "@/components/features/gallery/calendar-stack";
 import { PhotoViewer } from "@/components/features/gallery/photo-viewer";
@@ -8,8 +7,9 @@ import { Breadcrumbs } from "@/components/shared/breadcrumbs";
 import { ArrowRightIcon, BookIcon, CalendarIcon, EditIcon, LockIcon, PinIcon, PlusIcon, SearchIcon, UsersIcon } from "@/components/shared/icons";
 import { MoodBadge } from "@/components/shared/mood-badge";
 import { MOOD_LABELS, MOODS } from "@/lib/contracts/constants";
-import { mockMemberships, mockMemories, mockRooms } from "@/lib/contracts/fixtures";
 import type { Memory, Mood } from "@/lib/contracts/types";
+import { getDataSource, getRoomMembers } from "@/lib/data/server";
+import { unwrap } from "@/lib/data/unwrap";
 
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -39,30 +39,29 @@ function monthIndex(month: string) {
   return year * 12 + number - 1;
 }
 
-function authorName(authorId: string) {
-  return mockMemberships.find((item) => item.user_id === authorId)?.role === "owner" ? "Sea" : "Mint";
-}
-
 function longDate(date: string) {
   return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" }).format(new Date(`${date}T00:00:00Z`));
 }
 
-// TODO(T10/T14): replace the in-memory filter with listMemories(MemoryListParams).
 export default async function GalleryPage({ params, searchParams }: GalleryPageProps) {
   const { roomId } = await params;
   const { q = "", mood = "", day: dayParam = "", memory: memoryParam = "" } = await searchParams;
-  const room = mockRooms.find((item) => item.id === roomId);
-
-  if (!room) notFound();
+  const source = await getDataSource();
+  const room = unwrap(await source.getRoom(roomId));
+  const names = new Map((unwrap(await getRoomMembers([room.id])).get(room.id) ?? []).map((member) => [member.user_id, member.display_name]));
+  const authorName = (authorId: string) => names.get(authorId) ?? "A member";
 
   const moodFilter = (MOODS as readonly string[]).includes(mood) ? (mood as Mood) : null;
   const needle = q.trim().toLowerCase();
   const hasFilters = Boolean(needle || moodFilter);
 
-  const filtered = mockMemories
-    .filter((memory) => memory.room_id === room.id)
-    .filter((memory) => !needle || `${memory.title} ${memory.body}`.toLowerCase().includes(needle))
-    .filter((memory) => !moodFilter || memory.mood === moodFilter);
+  // Filters run in the database (listMemories); the calendar needs every match, so read all pages (50 per page).
+  const filtered: Memory[] = [];
+  for (let page = 1; page <= 40; page += 1) {
+    const result = unwrap(await source.listMemories({ room_id: room.id, query: needle || undefined, moods: moodFilter ? [moodFilter] : undefined, page, page_size: 50, sort: "memory_date_asc" }));
+    filtered.push(...result.items);
+    if (!result.has_more) break;
+  }
 
   const byDate = new Map<string, Memory[]>();
   for (const memory of filtered) byDate.set(memory.memory_date, [...(byDate.get(memory.memory_date) ?? []), memory]);

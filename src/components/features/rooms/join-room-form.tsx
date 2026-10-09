@@ -1,23 +1,39 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 
 import { Breadcrumbs } from "@/components/shared/breadcrumbs";
 import { ArrowLeftIcon, UsersIcon } from "@/components/shared/icons";
 import { RoomCover } from "@/components/shared/room-cover";
+import { createBrowserDataSource } from "@/lib/data/browser";
 
 const CODE_LENGTH = 8;
 
-export function JoinRoomForm() {
-  const [code, setCode] = useState("");
+export function JoinRoomForm({ initialCode = "" }: { initialCode?: string }) {
+  const [code, setCode] = useState(initialCode);
+  const router = useRouter();
   const [error, setError] = useState<string | null>(null);
+  const [pending, setPending] = useState(false);
 
-  // TODO(T8/T9): call joinRoom(code) and map ROOM_FULL / INVALID_INVITE_CODE to the message below.
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (code.length !== CODE_LENGTH) setError("The invite code must be 8 characters.");
-    else setError(null);
+    if (code.length !== CODE_LENGTH) {
+      setError("The invite code must be 8 characters.");
+      return;
+    }
+    setError(null);
+    setPending(true);
+    // the data layer maps INVALID_INVITE_CODE and ROOM_FULL to readable messages
+    const result = await createBrowserDataSource().joinRoom(code);
+    if (!result.ok) {
+      setError(result.error.message);
+      setPending(false);
+      return;
+    }
+    router.push(`/rooms/${result.data.id}`);
+    router.refresh();
   }
 
   return (
@@ -45,7 +61,7 @@ export function JoinRoomForm() {
           />
           {error ? <p className="mt-2 rounded-lg bg-[#f8e3e3] px-3 py-2 text-xs text-[#8a3a3a]" id="invite-error" role="alert">{error}</p> : null}
 
-          <button className="btn btn-primary mt-5 w-full" type="submit">Join room</button>
+          <button className="btn btn-primary mt-5 w-full disabled:opacity-60" disabled={pending} type="submit">{pending ? "Joining…" : "Join room"}</button>
           <Link className="mt-3 inline-flex items-center gap-1 self-start text-xs text-[var(--color-muted)] hover:text-[var(--color-green-deep)]" href="/">
             <ArrowLeftIcon className="size-3.5" /> Back to rooms
           </Link>

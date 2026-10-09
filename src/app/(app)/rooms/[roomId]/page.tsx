@@ -1,18 +1,28 @@
-import { notFound } from "next/navigation";
-
 import { MuseumRoom } from "@/components/features/museum/museum-room";
-import { mockMemories, mockRooms } from "@/lib/contracts/fixtures";
+import type { Memory } from "@/lib/contracts/types";
+import { getDataSource } from "@/lib/data/server";
+import { unwrap } from "@/lib/data/unwrap";
 
 type RoomPageProps = {
   params: Promise<{ roomId: string }>;
 };
 
+/** The 3D room shows at most this many objects (15 frames + 3 diaries); a few extra cover the mobile card list. */
+const SCENE_MEMORIES = 100;
+
 export default async function RoomPage({ params }: RoomPageProps) {
   const { roomId } = await params;
-  const room = mockRooms.find((item) => item.id === roomId);
+  const source = await getDataSource();
+  const room = unwrap(await source.getRoom(roomId));
 
-  if (!room) notFound();
+  const memories: Memory[] = [];
+  let total = 0;
+  for (let page = 1; memories.length < SCENE_MEMORIES; page += 1) {
+    const result = unwrap(await source.listMemories({ room_id: room.id, page, page_size: 50, sort: "memory_date_desc" }));
+    total = result.total;
+    memories.push(...result.items);
+    if (!result.has_more) break;
+  }
 
-  const memories = mockMemories.filter((memory) => memory.room_id === room.id);
-  return <MuseumRoom memories={memories} room={room} />;
+  return <MuseumRoom memories={memories} room={room} total={total} />;
 }

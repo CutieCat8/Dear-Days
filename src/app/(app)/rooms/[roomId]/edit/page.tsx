@@ -1,7 +1,8 @@
 import { notFound } from "next/navigation";
 
 import { RoomForm } from "@/components/features/rooms/room-form";
-import { mockRooms } from "@/lib/contracts/fixtures";
+import { getDataSource, getRoomMembers, getViewer } from "@/lib/data/server";
+import { unwrap } from "@/lib/data/unwrap";
 
 type EditRoomPageProps = {
   params: Promise<{ roomId: string }>;
@@ -9,9 +10,11 @@ type EditRoomPageProps = {
 
 export default async function EditRoomPage({ params }: EditRoomPageProps) {
   const { roomId } = await params;
-  const room = mockRooms.find((item) => item.id === roomId);
+  const source = await getDataSource();
+  const [room, viewer] = await Promise.all([source.getRoom(roomId).then(unwrap), getViewer()]);
+  // Only the owner edits a room (the database refuses anyone else too). Members get a 404, not a hint.
+  if (!viewer || room.owner_id !== viewer.user_id) notFound();
+  const members = unwrap(await getRoomMembers([room.id])).get(room.id) ?? [];
 
-  if (!room) notFound();
-
-  return <RoomForm cancelHref={`/rooms/${room.id}`} mode="edit" room={room} />;
+  return <RoomForm cancelHref={`/rooms/${room.id}`} members={members} mode="edit" room={room} />;
 }
