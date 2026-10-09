@@ -27,7 +27,12 @@ export function DitherCover({ src, alt = "" }: DitherCoverProps) {
     let timer: ReturnType<typeof setTimeout> | undefined;
     const measure = () => {
       const { width, height } = element.getBoundingClientRect();
-      if (width > 0 && height > 0) setSize({ width: Math.round(width), height: Math.round(height) });
+      if (width > 0 && height > 0) {
+        const next = { width: Math.round(width), height: Math.round(height) };
+        setSize((current) =>
+          current?.width === next.width && current.height === next.height ? current : next,
+        );
+      }
     };
 
     measure();
