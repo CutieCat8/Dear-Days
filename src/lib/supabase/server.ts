@@ -1,10 +1,10 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 
+import { requireSupabaseConfig } from "./config";
+
 export async function createSupabaseServerClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!url || !key) throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY");
+  const { url, key } = requireSupabaseConfig();
 
   const cookieStore = await cookies();
   return createServerClient(url, key, {
@@ -14,7 +14,7 @@ export async function createSupabaseServerClient() {
         try {
           cookiesToSet.forEach(({ name, value, options }) => cookieStore.set(name, value, options));
         } catch {
-          // Server Components cannot write cookies. T5 will refresh sessions in proxy.ts.
+          // Server Components cannot write cookies; src/proxy.ts refreshes the session on every request.
         }
       },
     },

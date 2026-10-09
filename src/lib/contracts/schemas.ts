@@ -117,6 +117,20 @@ export const profileInputSchema = z.object({
   display_name: displayNameSchema,
 });
 
+const emailSchema = z.string().trim().toLowerCase().email("Enter a valid email address").max(254);
+
+export const signInSchema = z.object({
+  email: emailSchema,
+  password: z.string().min(1, "Please enter your password").max(72),
+});
+
+// Supabase Auth hashes passwords with bcrypt, which ignores bytes after 72.
+export const signUpSchema = z.object({
+  display_name: displayNameSchema,
+  email: emailSchema,
+  password: z.string().min(8, "Use at least 8 characters").max(72, "Use 72 characters or fewer"),
+});
+
 export const tagInputSchema = z.object({
   type: tagTypeSchema,
   label: z.string().trim().min(1).max(50),

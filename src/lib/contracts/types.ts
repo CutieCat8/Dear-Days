@@ -17,6 +17,8 @@ import type {
   roomRoleSchema,
   roomSchema,
   roomThemeSchema,
+  signInSchema,
+  signUpSchema,
   tagInputSchema,
   tagSchema,
   tagTypeSchema,
@@ -31,6 +33,8 @@ export type RoomMembership = z.infer<typeof roomMembershipSchema>;
 export type RoomMemberView = z.infer<typeof roomMemberViewSchema>;
 export type Profile = z.infer<typeof profileSchema>;
 export type ProfileInput = z.infer<typeof profileInputSchema>;
+export type SignInInput = z.infer<typeof signInSchema>;
+export type SignUpInput = z.infer<typeof signUpSchema>;
 export type Memory = z.infer<typeof memorySchema>;
 export type MemoryMedia = z.infer<typeof memoryMediaSchema>;
 export type Tag = z.infer<typeof tagSchema>;
