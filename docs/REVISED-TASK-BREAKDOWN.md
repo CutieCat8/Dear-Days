@@ -307,28 +307,28 @@ Flow ที่ต้องส่งมอบ:
 
 - ซี: R2 และอนุมัติ database fields ใน R1
 - จิรวัฒน์: R1 และเริ่ม R4
-- สิรวิชญ์: R0, เตรียม room/membership implementation ของ R9 และ review R1
+- ธนวัฒน์: R0, เตรียม room/membership implementation ของ R9 และ review R1
 - เป้าหมายสิ้นวัน: schema reset ได้, login เริ่มทำงาน, contract invite/member ถูกล็อก
 
 ### Day 2 — Domain backend
 
 - ซี: R3
 - จิรวัฒน์: R4, R6, R7
-- สิรวิชญ์: R9, R10 และ R11
+- ธนวัฒน์: R9, R10 และ R11
 - เป้าหมายสิ้นวัน: auth, room/join และ memory CRUD ทำงานระดับ data layer
 
 ### Day 3 — UI wiring
 
 - ซี: support เฉพาะ migration/RLS/Storage defect ที่บล็อกเพื่อน; ยังไม่เริ่ม re-UI
 - จิรวัฒน์: R5 และ R8
-- สิรวิชญ์: R10–R12
+- ธนวัฒน์: R10–R12
 - เป้าหมายสิ้นวัน: ไม่มีหน้าหลักอ่าน fixtures ใน production path
 
 ### Day 4 — Integration, UI approval and release
 
 - ซี: R14 ด้าน database/security, R16 หลัง feature freeze และ R17 เมื่อ UI ผ่าน
 - จิรวัฒน์: ทดสอบ R14 ฝั่ง Auth/Memory และแก้ defects
-- สิรวิชญ์: R13, R15 และแก้ room/gallery defects ตาม final review
+- ธนวัฒน์: R13, R15 และแก้ room/gallery defects ตาม final review
 - เป้าหมายสิ้นวัน: deploy และ demo flow สองบัญชีผ่าน
 
 ## 7. กติกาป้องกันงานชนกัน
@@ -356,4 +356,5 @@ Flow ที่ต้องส่งมอบ:
 - responsive และ keyboard ใช้งาน flow หลักได้
 - lint, typecheck, fixture check และ production build ผ่านจาก clean install
 - deployment ผ่าน smoke test สองบัญชี และไม่มี secret ใน repository/client bundle
+
 
