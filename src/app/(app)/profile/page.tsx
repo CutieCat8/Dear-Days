@@ -1,5 +1,6 @@
 import { Breadcrumbs } from "@/components/shared/breadcrumbs";
 import { LockIcon, UsersIcon } from "@/components/shared/icons";
+import { signOutAction } from "@/lib/auth/actions";
 
 // TODO(T5/T19): replace placeholder values with the authenticated profile.
 export default function ProfilePage() {
@@ -37,7 +38,9 @@ export default function ProfilePage() {
             <li className="flex gap-3"><LockIcon className="mt-0.5 size-4 shrink-0 text-[var(--color-sage-strong)]" /><span><b className="block text-[0.85rem] text-[var(--color-green-deep)]">Rooms are private</b><span className="text-xs text-[var(--color-muted)]">Each room is visible only to its owner and one invited member.</span></span></li>
             <li className="flex gap-3"><UsersIcon className="mt-0.5 size-4 shrink-0 text-[var(--color-sage-strong)]" /><span><b className="block text-[0.85rem] text-[var(--color-green-deep)]">Just the two of you</b><span className="text-xs text-[var(--color-muted)]">No public sharing, no social feed.</span></span></li>
           </ul>
-          <button className="btn btn-secondary self-start" type="button">Sign out</button>
+          <form action={signOutAction}>
+            <button className="btn btn-secondary" type="submit">Sign out</button>
+          </form>
         </section>
       </div>
     </div>
