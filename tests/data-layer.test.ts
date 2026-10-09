@@ -82,9 +82,9 @@ describe("planMemorySave", () => {
 
 describe("contract validation used by the data layer", () => {
   it("accepts only the three themes and trims names", () => {
-    assert.equal(roomInputSchema.parse({ name: "  Home ", life_period: "2026", theme: "night" }).name, "Home");
-    assert.equal(roomInputSchema.safeParse({ name: "x", life_period: "y", theme: "neon" }).success, false);
-    assert.equal(roomInputSchema.safeParse({ name: "", life_period: "y", theme: "rose" }).success, false);
+    assert.equal(roomInputSchema.parse({ name: "  Home ", life_period: "2026", description: null, theme: "night" }).name, "Home");
+    assert.equal(roomInputSchema.safeParse({ name: "x", life_period: "y", description: null, theme: "neon" }).success, false);
+    assert.equal(roomInputSchema.safeParse({ name: "", life_period: "y", description: null, theme: "rose" }).success, false);
   });
 
   it("limits a memory to 8 photos", () => {

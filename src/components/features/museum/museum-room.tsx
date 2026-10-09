@@ -32,6 +32,7 @@ export function MuseumRoom({ room, memories, total = memories.length, canEditRoo
           <p className="mt-1.5 text-sm text-[var(--color-muted)]">
             {room.life_period} · {total} {total === 1 ? "memory" : "memories"}
           </p>
+          {room.description ? <p className="mt-1 max-w-xl text-sm text-[var(--color-muted)]">{room.description}</p> : null}
         </div>
         <div className="flex flex-wrap gap-2 lg:pointer-events-auto">
           <ActionLink href={`${basePath}/memories/new`} icon={<PlusIcon className="size-4" />}>Add memory</ActionLink>

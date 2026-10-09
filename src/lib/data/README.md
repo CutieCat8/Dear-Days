@@ -14,7 +14,7 @@ Components and route pages never query tables directly.
 | `memory-payload.ts` | Validates files against the declared metadata and builds the `save_memory` payload and storage paths `{room}/{user}/{memory}/{file}`. |
 | `result.ts` | Maps Postgres/PostgREST errors to `AppErrorCode`; raw database text never reaches the UI. |
 | `unwrap.ts` | Page helper: `UNAUTHENTICATED` redirects to `/sign-in`, `NOT_FOUND`/`FORBIDDEN` render 404, else throws. |
-| `profile.ts`, `overview.ts` | Profile read/update, room members, home overview. |
+| `profile.ts`, `overview.ts` | Contract `Profile` (`getCurrentProfile`), account page data (`Account`: profile + e-mail + bio), `listRoomMembers` (`RoomMemberView`, owner first), home overview. |
 
 Types: `src/lib/supabase/database.types.ts` is generated from the migrations. Regenerate after every migration:
 `npx supabase gen types typescript --local --schema public > src/lib/supabase/database.types.ts`.

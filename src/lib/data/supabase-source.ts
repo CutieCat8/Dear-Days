@@ -3,11 +3,12 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database, Json } from "@/lib/supabase/database.types";
 
 import type { DearDaysDataSource } from "@/lib/contracts/data-functions";
-import { memoryInputSchema, memoryListParamsSchema, roomInputSchema, tagInputSchema } from "@/lib/contracts/schemas";
-import type { DataResult, Memory, MemoryInput, MemoryListParams, NewMediaUpload, Paginated, Room, RoomInput, Tag, TagInput } from "@/lib/contracts/types";
+import { memoryInputSchema, memoryListParamsSchema, profileInputSchema, roomInputSchema, tagInputSchema } from "@/lib/contracts/schemas";
+import type { DataResult, Memory, MemoryInput, MemoryListParams, NewMediaUpload, Paginated, Profile, ProfileInput, Room, RoomInput, RoomMemberView, Tag, TagInput } from "@/lib/contracts/types";
 
 import { MEMORY_SELECT, mediaPaths, memoryFromRow, roomFromRow, tagFromRow, type MemoryRow, type RoomRow, type TagRow } from "./mappers";
 import { MEMORY_BUCKET, planMemorySave } from "./memory-payload";
+import { getCurrentProfile, listRoomMembers, updateMyAccount } from "./profile";
 import { fail, failFrom, ok } from "./result";
 
 /** Lifetime of a signed photo URL. Only the storage path is persisted; URLs are made on every read. */
@@ -45,6 +46,20 @@ export class SupabaseDataSource implements DearDaysDataSource {
     return data.user.id;
   }
 
+  // -------------------------------------------------------------- profile
+
+  getCurrentProfile(): Promise<DataResult<Profile>> {
+    return getCurrentProfile(this.client);
+  }
+
+  async updateProfile(input: ProfileInput): Promise<DataResult<Profile>> {
+    const parsed = profileInputSchema.safeParse(input);
+    if (!parsed.success) return validationFailed(parsed.error);
+    const result = await updateMyAccount(this.client, { display_name: parsed.data.display_name });
+    if (!result.ok) return result;
+    return getCurrentProfile(this.client);
+  }
+
   // -------------------------------------------------------------- rooms
 
   async listRooms(): Promise<DataResult<Room[]>> {
@@ -67,7 +82,7 @@ export class SupabaseDataSource implements DearDaysDataSource {
     if (!(await this.userId())) return fail("UNAUTHENTICATED", "Please sign in to continue.");
     const parsed = roomInputSchema.safeParse(input);
     if (!parsed.success) return validationFailed(parsed.error);
-    const { data, error } = await this.client.rpc("create_room", { p_name: parsed.data.name, p_life_period: parsed.data.life_period, p_theme: parsed.data.theme });
+    const { data, error } = await this.client.rpc("create_room", { p_name: parsed.data.name, p_life_period: parsed.data.life_period, p_theme: parsed.data.theme, p_description: parsed.data.description ?? undefined });
     if (error) return failFrom(error);
     return ok(roomFromRow(data as RoomRow, 1));
   }
@@ -82,7 +97,8 @@ export class SupabaseDataSource implements DearDaysDataSource {
     if (!current.ok) return current;
     if (current.data.owner_id !== userId) return fail("FORBIDDEN", "Only the room owner can change the room.");
 
-    const { data, error } = await this.client.from("rooms").update(parsed.data).eq("id", roomId).select("id");
+    const changes = { ...parsed.data, ...(parsed.data.description !== undefined ? { description: parsed.data.description?.length ? parsed.data.description : null } : {}) };
+    const { data, error } = await this.client.from("rooms").update(changes).eq("id", roomId).select("id");
     if (error) return failFrom(error);
     if (!data || data.length === 0) return fail("FORBIDDEN", "Only the room owner can change the room.");
     return this.getRoom(roomId);
@@ -114,6 +130,23 @@ export class SupabaseDataSource implements DearDaysDataSource {
     const { data, error } = await this.client.rpc("join_room", { p_invite_code: inviteCode });
     if (error) return failFrom(error);
     return this.getRoom(data as string);
+  }
+
+  async listRoomMembers(roomId: string): Promise<DataResult<RoomMemberView[]>> {
+    if (!(await this.userId())) return fail("UNAUTHENTICATED", "Please sign in to continue.");
+    const result = await listRoomMembers(this.client, [roomId]);
+    if (!result.ok) return result;
+    const members = result.data.get(roomId) ?? [];
+    // every room has an owner, so an empty list means the caller cannot see this room (not a member, or no such room)
+    if (members.length === 0) return fail("FORBIDDEN", "You are not a member of this room.");
+    return ok(members);
+  }
+
+  async removeRoomMember(roomId: string, userId: string): Promise<DataResult<{ user_id: string }>> {
+    if (!(await this.userId())) return fail("UNAUTHENTICATED", "Please sign in to continue.");
+    const { data, error } = await this.client.rpc("remove_room_member", { p_room_id: roomId, p_user_id: userId });
+    if (error) return failFrom(error);
+    return ok({ user_id: data as string });
   }
 
   // -------------------------------------------------------------- memories

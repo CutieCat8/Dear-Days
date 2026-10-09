@@ -1,57 +1,81 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-
-import type { Database } from "@/lib/supabase/database.types";
 import { z } from "zod";
 
-import type { DataResult } from "@/lib/contracts/types";
+import type { DataResult, Profile, RoomMemberView } from "@/lib/contracts/types";
+import type { Database } from "@/lib/supabase/database.types";
 
 import { fail, failFrom, ok } from "./result";
 
-export const profileInputSchema = z.object({
+/** Account page data: the contract `Profile` plus what only the signed-in person sees (e-mail, short bio). */
+export type Account = Profile & { email: string | null; bio: string | null };
+
+export const accountInputSchema = z.object({
   display_name: z.string().trim().min(1, "Please enter a display name").max(50),
   bio: z.string().trim().max(160).nullable().optional(),
 });
 
-export type ProfileInput = z.infer<typeof profileInputSchema>;
-export type Profile = { user_id: string; email: string | null; display_name: string; bio: string | null };
+export type AccountInput = z.infer<typeof accountInputSchema>;
 
-export async function getMyProfile(client: SupabaseClient<Database>): Promise<DataResult<Profile>> {
-  const { data: auth, error: authError } = await client.auth.getUser();
-  if (authError || !auth.user) return fail("UNAUTHENTICATED", "Please sign in to continue.");
-  const { data, error } = await client.from("profiles").select("user_id, display_name, bio").eq("user_id", auth.user.id).maybeSingle();
-  if (error) return failFrom(error);
-  if (!data) return fail("NOT_FOUND", "We could not find your profile.");
-  return ok({ user_id: data.user_id as string, email: auth.user.email ?? null, display_name: data.display_name as string, bio: (data.bio as string | null) ?? null });
+type ProfileRow = { user_id: string; display_name: string; avatar_url: string | null; bio?: string | null; created_at: string; updated_at: string };
+
+export function profileFromRow(row: ProfileRow): Profile {
+  return { id: row.user_id, display_name: row.display_name, avatar_url: row.avatar_url, created_at: row.created_at, updated_at: row.updated_at };
 }
 
-export async function updateMyProfile(client: SupabaseClient<Database>, input: ProfileInput): Promise<DataResult<Profile>> {
+export async function getMyAccount(client: SupabaseClient<Database>): Promise<DataResult<Account>> {
   const { data: auth, error: authError } = await client.auth.getUser();
   if (authError || !auth.user) return fail("UNAUTHENTICATED", "Please sign in to continue.");
-  const parsed = profileInputSchema.safeParse(input);
+  const { data, error } = await client.from("profiles").select("user_id, display_name, avatar_url, bio, created_at, updated_at").eq("user_id", auth.user.id).maybeSingle();
+  if (error) return failFrom(error);
+  if (!data) return fail("NOT_FOUND", "We could not find your profile.");
+  return ok({ ...profileFromRow(data), email: auth.user.email ?? null, bio: data.bio ?? null });
+}
+
+/** Contract `getCurrentProfile`: the signed-in user's profile without account-only fields. */
+export async function getCurrentProfile(client: SupabaseClient<Database>): Promise<DataResult<Profile>> {
+  const account = await getMyAccount(client);
+  if (!account.ok) return account;
+  return ok(profileFromRow({ user_id: account.data.id, display_name: account.data.display_name, avatar_url: account.data.avatar_url, created_at: account.data.created_at, updated_at: account.data.updated_at }));
+}
+
+/** Updates the signed-in user's own profile only (the id comes from the session, never from input). `bio` is only written when given. */
+export async function updateMyAccount(client: SupabaseClient<Database>, input: AccountInput): Promise<DataResult<Account>> {
+  const { data: auth, error: authError } = await client.auth.getUser();
+  if (authError || !auth.user) return fail("UNAUTHENTICATED", "Please sign in to continue.");
+  const parsed = accountInputSchema.safeParse(input);
   if (!parsed.success) {
     return fail("VALIDATION_ERROR", parsed.error.issues[0]?.message ?? "Please check your details.", { field_errors: { display_name: [parsed.error.issues[0]?.message ?? "Invalid"] } });
   }
-  const { error } = await client.from("profiles").update({ display_name: parsed.data.display_name, bio: parsed.data.bio?.length ? parsed.data.bio : null }).eq("user_id", auth.user.id);
+  const update: { display_name: string; bio?: string | null } = { display_name: parsed.data.display_name };
+  if (parsed.data.bio !== undefined) update.bio = parsed.data.bio?.length ? parsed.data.bio : null;
+  const { error } = await client.from("profiles").update(update).eq("user_id", auth.user.id);
   if (error) return failFrom(error);
-  return getMyProfile(client);
+  return getMyAccount(client);
 }
 
-export type RoomMember = { user_id: string; role: "owner" | "member"; display_name: string };
-
-/** Members (with display names) for several rooms. Names come from profiles visible to you through RLS. */
-export async function listRoomMembers(client: SupabaseClient<Database>, roomIds: string[]): Promise<DataResult<Map<string, RoomMember[]>>> {
-  const result = new Map<string, RoomMember[]>();
+/** Members (public profile data only, never e-mail) for several rooms, owner first. Names come from profiles visible through RLS. */
+export async function listRoomMembers(client: SupabaseClient<Database>, roomIds: string[]): Promise<DataResult<Map<string, RoomMemberView[]>>> {
+  const result = new Map<string, RoomMemberView[]>();
   if (roomIds.length === 0) return ok(result);
   const { data: members, error } = await client.from("room_members").select("room_id, user_id, role, joined_at").in("room_id", roomIds).order("joined_at");
   if (error) return failFrom(error);
-  const ids = [...new Set((members ?? []).map((row) => row.user_id as string))];
-  const { data: profiles, error: profileError } = await client.from("profiles").select("user_id, display_name").in("user_id", ids);
+  const ids = [...new Set((members ?? []).map((row) => row.user_id))];
+  const { data: profiles, error: profileError } = await client.from("profiles").select("user_id, display_name, avatar_url").in("user_id", ids);
   if (profileError) return failFrom(profileError);
-  const names = new Map((profiles ?? []).map((row) => [row.user_id as string, row.display_name as string]));
+  const byId = new Map((profiles ?? []).map((row) => [row.user_id, row]));
   for (const row of members ?? []) {
-    const list = result.get(row.room_id as string) ?? [];
-    list.push({ user_id: row.user_id as string, role: row.role as "owner" | "member", display_name: names.get(row.user_id as string) ?? "Member" });
-    result.set(row.room_id as string, list);
+    const list = result.get(row.room_id) ?? [];
+    const profile = byId.get(row.user_id);
+    list.push({
+      room_id: row.room_id,
+      user_id: row.user_id,
+      display_name: profile?.display_name ?? "Member",
+      avatar_url: profile?.avatar_url ?? null,
+      role: row.role as RoomMemberView["role"],
+      joined_at: row.joined_at,
+    });
+    result.set(row.room_id, list);
   }
+  for (const list of result.values()) list.sort((a, b) => Number(b.role === "owner") - Number(a.role === "owner"));
   return ok(result);
 }

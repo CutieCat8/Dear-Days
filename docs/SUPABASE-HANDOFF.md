@@ -1,6 +1,6 @@
 # Supabase integration handoff
 
-Branch: `backend/supabase-integration`, based on `main` at `152fa36`. It does NOT include R1 (`origin/main` `b8b6bb1`); see "Merging with R1".
+Branch: `backend/supabase-integration`. Includes R1 (`origin/main` `b8b6bb1`): contracts, schemas and data layer are aligned (see "R1 merge").
 
 ## Status
 
@@ -34,22 +34,33 @@ Restart `npm run dev` after changing it. Use `http://localhost:3000` (it is the 
 
 Shared: `next.config.ts` (image host for signed URLs), `package.json` (scripts `test:unit`, `test:db`, `test:integration`, `gen:types`), `.env.example`.
 
-## Merging with R1 (`origin/main`, `b8b6bb1`)
+## R1 merge (done on this branch)
 
-R1 changed the contracts (`src/lib/contracts/*`, `docs/CONTRACTS.md`). A plain merge conflicts in `docs/CONTRACTS.md` and then fails to type-check, because this branch's data layer predates these contract changes. What must be reconciled:
+`origin/main` was merged (one conflict, `docs/CONTRACTS.md`: both texts kept). The code was then aligned with the R1 contracts:
 
-1. `DearDaysDataSource` gained `getCurrentProfile`, `updateProfile`, `listRoomMembers`, `removeRoomMember`. `SupabaseDataSource` and `MockDataSource` (`src/lib/data/*`) must implement them. Today the same data lives in `src/lib/data/profile.ts` (own `Profile` and `RoomMember` types).
-2. `Profile` is now `{ id, display_name, avatar_url, created_at, updated_at }`; this branch uses `{ user_id, email, display_name, bio }` and the `profiles` table has `user_id`, `display_name`, `bio`, `created_at`. Needs a migration (`avatar_url`, `updated_at`, decide `id` vs `user_id`) and updates to `getViewer` and the profile page/form.
-3. `Room.description` (nullable, max 300) and `RoomInput.description` exist in R1, but there is no `rooms.description` column. Needs a migration; `room-form.tsx` currently shows the field disabled.
-4. `RoomMemberView` includes `avatar_url`, `joined_at`; `removeRoomMember` is owner-only and owners cannot be removed. Needs an RPC or policy plus a Remove button in the members panel (not built).
-5. `INVITE_CODE_LENGTH`, `ROOM_MAX_MEMBERS` constants and `inviteCodeSchema` (trim + uppercase) should be used by `join_room` callers and `join-room-form.tsx`.
-6. Both branches edited `docs/CONTRACTS.md`: keep R1's text and append the "implementation" notes (`room_summaries`, RPCs, storage path, signed URLs).
-7. Every new migration must be tested locally (`npm run test:db`, `npm run test:integration`), regenerated into `src/lib/supabase/database.types.ts` (`npm run gen:types`), and pushed to hosted with `db push --dry-run` first. Never `db reset` on hosted.
+| R1 contract | Implementation |
+| --- | --- |
+| `Profile {id, display_name, avatar_url, created_at, updated_at}` | `profiles` keeps `user_id` as primary key (mapped to `id` in `profileFromRow`); migration `...0300` adds `avatar_url`, `updated_at`. The account page still shows e-mail and the short bio through `Account = Profile + {email, bio}` (`src/lib/data/profile.ts`), so no feature was dropped. |
+| `getCurrentProfile`, `updateProfile` | `SupabaseDataSource` (session id only, never from input); `MockDataSource` returns the fixture profile, update is read-only. |
+| `Room.description` (nullable, 1..300 after trim) | `rooms.description` + `create_room(..., p_description)`; empty/blank is stored as `null`; the room form saves it, the rooms list and the room header show it. |
+| `RoomMemberView` + `listRoomMembers(roomId)` | owner first, public profile data only (no e-mail); a caller who is not a member gets `FORBIDDEN`. |
+| `removeRoomMember(roomId, userId)` | RPC `remove_room_member`, rules from `docs/CONTRACTS.md`: caller not the owner (or room not visible) `FORBIDDEN`; target is the owner (including the owner removing themselves) `FORBIDDEN`; target not in the room `NOT_FOUND`; success `{ user_id }`. The room row is locked first (no interleaving with `join_room`). There is no DELETE grant on `room_members`, so the RPC is the only way. Edit room has "Remove member" with an inline confirm. |
+| `inviteCodeSchema`, `INVITE_CODE_LENGTH`, `ROOM_MAX_MEMBERS` | the join form uses the shared length; the code is normalised (trim + uppercase) by the database function as before. |
 
-Suggested order: merge `origin/main` into this branch, fix types (1, 4, 5), add one migration for 2 and 3, then update the UI.
+Behaviour to know: memories written by a removed member stay in the room (the owner and the other members still see them); the removed person can no longer read or change anything (every policy needs membership) and can join again with the invite code while there is a free seat.
+
+### Hosted project: migration still pending
+
+`20261010000300_r1_contract_alignment.sql` has NOT been applied to `bnukioggopvrnppxkkkk` (hosted has `...0000`, `...0100`, `...0200`). Until `db push` runs, with this branch pointed at hosted:
+
+- Create room fails (the RPC has no `p_description` argument yet), and saving a room description fails;
+- `removeRoomMember` fails (function missing), so Remove member does nothing useful;
+- loading the signed-in profile (header name, account page, `getViewer`) fails, because the query selects `avatar_url` and `updated_at`, which do not exist yet; most signed-in pages call it, so the app is effectively unusable on hosted until the migration is applied.
+
+So: do not use this branch against hosted before `npx supabase db push --dry-run` (expect only `20261010000300_r1_contract_alignment.sql`) and `npx supabase db push`. Run `npm run test:db` and `npm run test:integration` against a local stack first.
 
 ## Not done
-Hosted browser flows and e-mail round-trip (above), member removal, avatar and description storage, rate limiting of invite-code guesses, mobile 3D loading (backlog in `docs/ROOM-3D-HANDOFF.md`), deployment.
+Hosted browser flows and e-mail round-trip (above), avatar upload (the column exists, no upload UI), rate limiting of invite-code guesses, mobile 3D loading (backlog in `docs/ROOM-3D-HANDOFF.md`), deployment.
 
 ## After pulling
 ```

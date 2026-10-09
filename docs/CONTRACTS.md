@@ -130,10 +130,12 @@ type RoomMemberView = {
 MVP ไม่มีปุ่มให้ member ออกจากห้องเอง
 
 **การ implement จริง (Supabase):**
-- `member_count` ไม่ใช่คอลัมน์ ได้จาก view `room_summaries`; Room ไม่มี field `description` (ฟอร์มแสดงเป็น disabled)
+- `member_count` ไม่ใช่คอลัมน์ ได้จาก view `room_summaries`; `description` เก็บใน `rooms.description` (ค่าว่างเก็บเป็น `null`)
 - สร้างห้องผ่าน RPC `create_room` (room + owner membership ใน transaction เดียว); เข้าห้องผ่าน RPC `join_room` (ล็อกแถวห้อง, join ซ้ำไม่เพิ่มซ้ำ) คืน `INVALID_INVITE_CODE` / `ROOM_FULL`
 - Invite link: `/rooms/join?code=XXXXXXXX` เติม code ให้ แต่ไม่ join เอง ผู้ใช้กด Join; ถ้ายังไม่ login จะถูกพาไป `/sign-in?next=...` แล้วกลับมาที่ลิงก์เดิม
 - `memory_media.storage_path` เก็บ path เท่านั้น (`{room_id}/{uploader_id}/{memory_id}/{file}`); `signed_url` สร้างตอนอ่านและหมดอายุใน 1 ชั่วโมง
+- `Profile.id` คือ `profiles.user_id`; หน้า account ใช้ `Account = Profile + { email, bio }` (ไม่อยู่ใน contract)
+- `removeRoomMember` ทำผ่าน RPC `remove_room_member` ตามตารางด้านบน; memory ที่สมาชิกที่ถูกนำออกเขียนไว้ยังอยู่ในห้อง
 - Error mapping: ดู `src/lib/data/result.ts`
 
 ### Memory

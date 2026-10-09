@@ -13,7 +13,7 @@ export default async function EditRoomPage({ params }: EditRoomPageProps) {
   const source = await getDataSource();
   const [room, viewer] = await Promise.all([source.getRoom(roomId).then(unwrap), getViewer()]);
   // Only the owner edits a room (the database refuses anyone else too). Members get a 404, not a hint.
-  if (!viewer || room.owner_id !== viewer.user_id) notFound();
+  if (!viewer || room.owner_id !== viewer.id) notFound();
   const members = unwrap(await getRoomMembers([room.id])).get(room.id) ?? [];
 
   return <RoomForm cancelHref={`/rooms/${room.id}`} members={members} mode="edit" room={room} />;

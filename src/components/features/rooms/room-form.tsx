@@ -10,14 +10,14 @@ import { PlusIcon, StarIcon } from "@/components/shared/icons";
 import { THEME_LABELS } from "@/components/shared/room-cover";
 import type { Room } from "@/lib/contracts/types";
 import { createBrowserDataSource } from "@/lib/data/browser";
-import type { RoomMember } from "@/lib/data/profile";
+import type { RoomMemberView } from "@/lib/contracts/types";
 
 type RoomFormProps = {
   mode: "create" | "edit";
   room?: Room;
   cancelHref: string;
   /** People in the room (names from their profiles). */
-  members?: RoomMember[];
+  members?: Pick<RoomMemberView, "user_id" | "display_name" | "role">[];
 };
 
 type Theme = Room["theme"];
@@ -63,8 +63,8 @@ export function RoomForm({ mode, room, cancelHref, members = [] }: RoomFormProps
   const isEdit = mode === "edit";
   const [name, setName] = useState(room?.name ?? "");
   const [period, setPeriod] = useState(room?.life_period ?? "");
-  // UI only: the data contract has no description field yet (add it to docs/CONTRACTS.md + schemas before saving it).
-  const [description, setDescription] = useState("");
+  const [description, setDescription] = useState(room?.description ?? "");
+  const [removeCandidate, setRemoveCandidate] = useState<string | null>(null);
   const [theme, setTheme] = useState<Theme>(room?.theme ?? "sunrise");
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -73,7 +73,7 @@ export function RoomForm({ mode, room, cancelHref, members = [] }: RoomFormProps
     setFieldErrors({});
     setPending(true);
     const source = createBrowserDataSource();
-    const input = { name, life_period: period, theme };
+    const input = { name, life_period: period, description: description.trim() ? description.trim() : null, theme };
     const result = isEdit && room ? await source.updateRoom(room.id, input) : await source.createRoom(input);
     if (!result.ok) {
       // the form keeps everything the user typed, including the chosen theme
@@ -83,6 +83,20 @@ export function RoomForm({ mode, room, cancelHref, members = [] }: RoomFormProps
       return;
     }
     router.push(`/rooms/${result.data.id}`);
+    router.refresh();
+  }
+
+  async function handleRemoveMember(userId: string) {
+    if (!room) return;
+    setPending(true);
+    setError(null);
+    const result = await createBrowserDataSource().removeRoomMember(room.id, userId);
+    setPending(false);
+    setRemoveCandidate(null);
+    if (!result.ok) {
+      setError(result.error.message);
+      return;
+    }
     router.refresh();
   }
 
@@ -132,8 +146,8 @@ export function RoomForm({ mode, room, cancelHref, members = [] }: RoomFormProps
 
           <div>
             <label className="field-label" htmlFor="room-description">Description</label>
-            <textarea className="field-input disabled:cursor-not-allowed disabled:opacity-60" disabled id="room-description" maxLength={DESCRIPTION_MAX} name="description" onChange={(event) => setDescription(event.target.value)} placeholder="A few words about this chapter of your life" rows={4} value={description} />
-            <p className="mt-1 flex justify-between text-[0.7rem] text-[var(--color-muted)]"><span>Not saved yet: rooms do not have a description in the data contract.</span><span>{description.length} / {DESCRIPTION_MAX}</span></p>
+            <textarea className="field-input" id="room-description" maxLength={DESCRIPTION_MAX} name="description" onChange={(event) => setDescription(event.target.value)} placeholder="A few words about this chapter of your life" rows={4} value={description} />
+            <p className="mt-1 flex justify-between text-[0.7rem] text-[var(--color-muted)]"><span>Optional, shown on the room.</span><span>{description.length} / {DESCRIPTION_MAX}</span></p>
           </div>
 
           <fieldset>
@@ -205,6 +219,16 @@ export function RoomForm({ mode, room, cancelHref, members = [] }: RoomFormProps
                     ) : (
                       <p className="text-xs text-[var(--color-muted)]">Member</p>
                     )}
+                    {isEdit && member.role === "member" ? (
+                      removeCandidate === member.user_id ? (
+                        <span className="mt-1 flex gap-1.5" role="group" aria-label="Confirm remove member">
+                          <button className="btn btn-secondary btn-sm !text-[#8a3a3a]" disabled={pending} onClick={() => handleRemoveMember(member.user_id)} type="button">Remove</button>
+                          <button className="btn btn-secondary btn-sm" disabled={pending} onClick={() => setRemoveCandidate(null)} type="button">Keep</button>
+                        </span>
+                      ) : (
+                        <button className="mt-1 text-xs text-[#8a3a3a] underline-offset-2 hover:underline" onClick={() => setRemoveCandidate(member.user_id)} type="button">Remove member</button>
+                      )
+                    ) : null}
                   </div>
                 </div>
               ))}

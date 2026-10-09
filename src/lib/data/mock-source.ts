@@ -1,6 +1,6 @@
 import type { DearDaysDataSource } from "@/lib/contracts/data-functions";
-import { mockMemories, mockRooms, mockTags } from "@/lib/contracts/fixtures";
-import type { DataResult, Memory, MemoryListParams, Paginated, Room, Tag } from "@/lib/contracts/types";
+import { mockCurrentProfile, mockMemories, mockRoomMembers, mockRooms, mockTags } from "@/lib/contracts/fixtures";
+import type { DataResult, Memory, MemoryListParams, Paginated, Profile, Room, RoomMemberView, Tag } from "@/lib/contracts/types";
 
 import { fail, ok } from "./result";
 
@@ -8,6 +8,23 @@ const READ_ONLY = "Demo mode is read-only. Set NEXT_PUBLIC_DATA_MODE=supabase (a
 
 /** Read-only demo data. Selected only with DEAR_DAYS_DATA_MODE=mock; never used as a fallback in real mode. */
 export class MockDataSource implements DearDaysDataSource {
+  async getCurrentProfile(): Promise<DataResult<Profile>> {
+    return ok(mockCurrentProfile);
+  }
+
+  async updateProfile(): Promise<DataResult<Profile>> {
+    return fail("INTERNAL_ERROR", READ_ONLY);
+  }
+
+  async listRoomMembers(roomId: string): Promise<DataResult<RoomMemberView[]>> {
+    const members = mockRoomMembers.filter((member) => member.room_id === roomId);
+    return members.length > 0 ? ok(members) : fail("FORBIDDEN", "You are not a member of this room.");
+  }
+
+  async removeRoomMember(): Promise<DataResult<{ user_id: string }>> {
+    return fail("INTERNAL_ERROR", READ_ONLY);
+  }
+
   async listRooms(): Promise<DataResult<Room[]>> {
     return ok(mockRooms);
   }

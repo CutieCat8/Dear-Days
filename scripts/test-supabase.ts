@@ -83,6 +83,7 @@ async function main() {
   const partner = await signUp("partner");
   const third = await signUp("third");
   const outsider = await signUp("outsider");
+  const anonSource = new SupabaseDataSource(createClient(url as string, anon as string, { auth: { persistSession: false } }));
 
   let roomId = "";
   let code = "";
@@ -90,7 +91,7 @@ async function main() {
   let paths: string[] = [];
 
   await step("owner creates a night room and is its only member", async () => {
-    const created = await owner.source.createRoom({ name: "University Days", life_period: "2026-2027", theme: "night" });
+    const created = await owner.source.createRoom({ name: "University Days", life_period: "2026-2027", description: null, theme: "night" });
     assert.ok(created.ok, JSON.stringify(created));
     roomId = created.data.id;
     code = created.data.invite_code;
@@ -102,7 +103,7 @@ async function main() {
   });
 
   await step("invalid room input is a VALIDATION_ERROR with field errors", async () => {
-    const bad = await owner.source.createRoom({ name: "", life_period: "x", theme: "night" });
+    const bad = await owner.source.createRoom({ name: "", life_period: "x", description: null, theme: "night" });
     assert.ok(!bad.ok && bad.error.code === "VALIDATION_ERROR" && bad.error.field_errors?.name);
   });
 
@@ -302,6 +303,75 @@ async function main() {
     const raw = createClient(url as string, anon as string, { auth: { persistSession: false } });
     const direct = await raw.from("rooms").select("*");
     assert.ok(direct.error || (direct.data?.length ?? 0) === 0, "anon key alone reads nothing");
+  });
+
+  await step("R1: description, current profile, member list", async () => {
+    const withNote = await owner.source.createRoom({ name: "Note room", life_period: "2027", description: "  Our first year  ", theme: "rose" });
+    assert.ok(withNote.ok, JSON.stringify(withNote));
+    assert.equal(withNote.data.description, "Our first year");
+    const cleared = await owner.source.updateRoom(withNote.data.id, { description: "" });
+    assert.ok(cleared.ok && cleared.data.description === null, "empty description is stored as null");
+    const tooLong = await owner.source.updateRoom(withNote.data.id, { description: "x".repeat(301) });
+    assert.ok(!tooLong.ok && tooLong.error.code === "VALIDATION_ERROR");
+    const stolen = await partner.source.updateRoom(withNote.data.id, { description: "hack" });
+    assert.ok(!stolen.ok, "a non-member cannot change the description");
+
+    const profile = await owner.source.getCurrentProfile();
+    assert.ok(profile.ok && profile.data.id === owner.id && profile.data.display_name === "owner" && profile.data.avatar_url === null);
+    assert.ok(!("email" in profile.data), "the contract profile never carries the e-mail");
+    const renamed = await owner.source.updateProfile({ display_name: "Owner Renamed" });
+    assert.ok(renamed.ok && renamed.data.display_name === "Owner Renamed");
+    await owner.source.updateProfile({ display_name: "owner" });
+    const anonymous = await anonSource.getCurrentProfile();
+    assert.ok(!anonymous.ok && anonymous.error.code === "UNAUTHENTICATED");
+
+    const list = await owner.source.listRoomMembers(roomId);
+    assert.ok(list.ok && list.data.length === 2 && list.data[0].role === "owner" && list.data.every((m) => !("email" in m)));
+    const denied = await outsider.source.listRoomMembers(roomId);
+    assert.ok(!denied.ok && denied.error.code === "FORBIDDEN");
+  });
+
+  await step("R1: removeRoomMember is owner-only, never removes the owner, and cuts access", async () => {
+    const mine = await owner.source.createRoom({ name: "Remove room", life_period: "2027", description: null, theme: "night" });
+    assert.ok(mine.ok);
+    const code = mine.data.invite_code;
+    assert.ok((await partner.source.joinRoom(code)).ok);
+    const photo = withPhotos(1);
+    const theirs = await partner.source.createMemory(mine.data.id, photo.input, photo.uploads);
+    assert.ok(theirs.ok, JSON.stringify(theirs));
+
+    const byMember = await partner.source.removeRoomMember(mine.data.id, owner.id);
+    assert.ok(!byMember.ok && byMember.error.code === "FORBIDDEN", "a member cannot remove the owner");
+    const bySelf = await partner.source.removeRoomMember(mine.data.id, partner.id);
+    assert.ok(!bySelf.ok && bySelf.error.code === "FORBIDDEN", "a member cannot remove themselves through this operation");
+    const byOutsider = await outsider.source.removeRoomMember(mine.data.id, partner.id);
+    assert.ok(!byOutsider.ok && byOutsider.error.code === "FORBIDDEN");
+    const ownerSelf = await owner.source.removeRoomMember(mine.data.id, owner.id);
+    assert.ok(!ownerSelf.ok && ownerSelf.error.code === "FORBIDDEN", "the owner cannot leave");
+    const notMember = await owner.source.removeRoomMember(mine.data.id, outsider.id);
+    assert.ok(!notMember.ok && notMember.error.code === "NOT_FOUND");
+    const anonymous = await anonSource.removeRoomMember(mine.data.id, partner.id);
+    assert.ok(!anonymous.ok && anonymous.error.code === "UNAUTHENTICATED");
+    assert.equal((await owner.source.getRoom(mine.data.id)).ok && (await owner.source.getRoom(mine.data.id) as { data: { member_count: number } }).data.member_count, 2);
+
+    // direct table access stays closed: removal only goes through the RPC
+    const direct = await owner.client.from("room_members").delete().eq("room_id", mine.data.id).eq("user_id", partner.id);
+    assert.ok(direct.error, "no DELETE grant on room_members");
+
+    const removed = await owner.source.removeRoomMember(mine.data.id, partner.id);
+    assert.ok(removed.ok && removed.data.user_id === partner.id, JSON.stringify(removed));
+    const room = await partner.source.getRoom(mine.data.id);
+    assert.ok(!room.ok && room.error.code === "NOT_FOUND", "the removed person cannot see the room");
+    const memories = await partner.source.listMemories({ room_id: mine.data.id });
+    assert.ok(memories.ok && memories.data.total === 0);
+    assert.equal(await exists(partner.client, theirs.data.media[0].storage_path), false, "and cannot read its files");
+    const edit = await partner.source.updateMemory(mine.data.id, theirs.data.id, photo.input, []);
+    assert.ok(!edit.ok, "and cannot edit what they wrote");
+    const ownerStill = await owner.source.getMemory(mine.data.id, theirs.data.id);
+    assert.ok(ownerStill.ok, "their memories stay in the room");
+    const again = await partner.source.joinRoom(code);
+    assert.ok(again.ok, "they can join again with the invite code while there is space");
+    assert.ok((await owner.source.deleteRoom(mine.data.id)).ok);
   });
 
   await step("only the owner deletes the room; photos of both members are removed with it", async () => {

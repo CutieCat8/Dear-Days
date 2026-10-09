@@ -7,6 +7,7 @@ export type RoomRow = {
   owner_id: string;
   name: string;
   life_period: string;
+  description?: string | null;
   theme: string;
   invite_code: string;
   member_count?: number;
@@ -47,7 +48,7 @@ export type MemoryRow = {
 export const MEMORY_SELECT = "*, memory_media!memory_media_memory_id_fkey(*), memory_tags(tags(*))";
 
 export function roomFromRow(row: RoomRow, memberCount?: number): Room {
-  return roomSchema.parse({ ...row, member_count: row.member_count ?? memberCount ?? 1 });
+  return roomSchema.parse({ ...row, description: row.description ?? null, member_count: row.member_count ?? memberCount ?? 1 });
 }
 
 export function tagFromRow(row: TagRow): Tag {

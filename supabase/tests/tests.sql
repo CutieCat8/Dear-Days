@@ -403,4 +403,83 @@ do $$ begin
 end $$;
 commit;
 
+-- ---------------------------------------------------------------- 12. R1 alignment: description, profile columns, remove_room_member
+begin;
+select t.as_user('owner') as u \gset
+do $$
+declare r public.rooms; r2 public.rooms;
+begin
+  r := public.create_room('R1 room', 'p', 'rose', '  A short note  ');
+  perform set_config('t.r1room', r.id::text, true);
+  perform set_config('t.r1code', r.invite_code, true);
+  perform t.eq(r.description, 'A short note', 'description is trimmed and saved');
+  r2 := public.create_room('No note', 'p', 'sunrise', '   ');
+  perform t.eq(r2.description, null, 'blank description is stored as null');
+  perform t.eq((select description from public.room_summaries where id = r.id), 'A short note', 'room_summaries exposes description');
+  perform t.throws($q$ select public.create_room('x', 'p', 'sunrise', repeat('x', 301)) $q$, 'violates check constraint');
+  update public.rooms set description = 'Changed' where id = r.id;
+  perform t.eq((select description from public.rooms where id = r.id), 'Changed', 'owner updates description');
+  perform t.eq((select updated_at from public.profiles where user_id = current_setting('t.owner')::uuid) is not null, true, 'profiles.updated_at exists');
+  perform t.eq((select avatar_url from public.profiles where user_id = current_setting('t.owner')::uuid), null, 'profiles.avatar_url defaults to null');
+end $$;
+create temp table ctx2 as select current_setting('t.r1room') as room, current_setting('t.r1code') as code;
+grant select on ctx2 to public;
+commit;
+
+begin;
+select t.as_user('partner') as u \gset
+do $$ begin
+  perform public.join_room((select code from ctx2));
+  update public.rooms set description = 'hack' where id = (select room::uuid from ctx2);
+  perform t.eq((select description from public.rooms where id = (select room::uuid from ctx2)), 'Changed', 'member cannot change description (RLS)');
+end $$;
+commit;
+
+-- remove_room_member rules
+begin;
+select t.as_anon() as u \gset
+do $$ begin
+  perform t.throws(format('select public.remove_room_member(%L, %L)', (select room from ctx2), current_setting('t.partner')), 'permission denied');
+end $$;
+rollback;
+
+begin;
+select t.as_user('partner') as u \gset
+do $$ begin
+  perform t.throws(format('select public.remove_room_member(%L, %L)', (select room from ctx2), current_setting('t.partner')), 'FORBIDDEN');
+  perform t.throws(format('select public.remove_room_member(%L, %L)', (select room from ctx2), current_setting('t.owner')), 'FORBIDDEN');
+  perform t.eq((select count(*) from public.room_members where room_id = (select room::uuid from ctx2)), 2::bigint, 'non-owner removed nobody');
+end $$;
+rollback;
+
+begin;
+select t.as_user('outsider') as u \gset
+do $$ begin
+  perform t.throws(format('select public.remove_room_member(%L, %L)', (select room from ctx2), current_setting('t.partner')), 'FORBIDDEN');
+  perform t.throws(format('select public.remove_room_member(%L, %L)', '00000000-0000-4000-8000-000000000000', current_setting('t.partner')), 'FORBIDDEN');
+end $$;
+rollback;
+
+begin;
+select t.as_user('owner') as u \gset
+do $$ begin
+  perform t.throws(format('select public.remove_room_member(%L, %L)', (select room from ctx2), current_setting('t.owner')), 'FORBIDDEN');
+  perform t.throws(format('select public.remove_room_member(%L, %L)', (select room from ctx2), current_setting('t.outsider')), 'NOT_FOUND');
+  perform t.throws(format('delete from public.room_members where room_id = %L and user_id = %L', (select room from ctx2), current_setting('t.partner')), 'permission denied');
+  perform t.eq(public.remove_room_member((select room::uuid from ctx2), current_setting('t.partner')::uuid), current_setting('t.partner')::uuid, 'owner removes the member');
+  perform t.eq((select member_count from public.room_summaries where id = (select room::uuid from ctx2)), 1, 'member_count after removal');
+end $$;
+commit;
+
+begin;
+select t.as_user('partner') as u \gset
+do $$ begin
+  perform t.eq((select count(*) from public.rooms where id = (select room::uuid from ctx2)), 0::bigint, 'removed member no longer sees the room');
+  perform t.eq((select count(*) from public.room_members where room_id = (select room::uuid from ctx2)), 0::bigint, 'removed member no longer sees members');
+  perform t.throws(format('select public.save_memory(%L, gen_random_uuid(), %L::jsonb)', (select room from ctx2), '{"title":"x","body":"y","memory_date":"2026-10-01","tags":[],"media":{"added":[],"existing":[],"order":[]}}'), 'FORBIDDEN');
+  -- can come back with the invite code while there is space
+  perform t.eq(public.join_room((select code from ctx2)), (select room::uuid from ctx2), 'removed member can join again with the code');
+end $$;
+commit;
+
 \echo 'ALL DATABASE TESTS PASSED'
