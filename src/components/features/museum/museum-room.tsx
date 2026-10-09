@@ -12,9 +12,11 @@ import { MuseumScene } from "./museum-scene";
 type MuseumRoomProps = {
   room: Room;
   memories: Memory[];
+  /** All memories in the room (can be more than the ones loaded for the scene). */
+  total?: number;
 };
 
-export function MuseumRoom({ room, memories }: MuseumRoomProps) {
+export function MuseumRoom({ room, memories, total = memories.length }: MuseumRoomProps) {
   const basePath = `/rooms/${room.id}`;
 
   return (
@@ -26,7 +28,7 @@ export function MuseumRoom({ room, memories }: MuseumRoomProps) {
           <p className="eyebrow mb-1.5">{THEME_LABELS[room.theme]} theme · {room.member_count} of 2 members</p>
           <h1 className="title-xl">{room.name}</h1>
           <p className="mt-1.5 text-sm text-[var(--color-muted)]">
-            {room.life_period} · {memories.length} {memories.length === 1 ? "memory" : "memories"}
+            {room.life_period} · {total} {total === 1 ? "memory" : "memories"}
           </p>
         </div>
         <div className="flex flex-wrap gap-2 lg:pointer-events-auto">

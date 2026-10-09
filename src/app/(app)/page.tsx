@@ -6,22 +6,20 @@ import { Breadcrumbs } from "@/components/shared/breadcrumbs";
 import { ArrowRightIcon, CameraIcon, ImageIcon, LeafIcon, LockIcon, PinIcon, PlusIcon, SmileIcon, TextIcon, UsersIcon } from "@/components/shared/icons";
 import { DEFAULT_ROOM_COVER_IMAGE, RoomCover, THEME_LABELS } from "@/components/shared/room-cover";
 import { MOOD_LABELS } from "@/lib/contracts/constants";
-import { mockMemories, mockRooms, mockTags } from "@/lib/contracts/fixtures";
-import type { Memory } from "@/lib/contracts/types";
+import type { Memory, Room } from "@/lib/contracts/types";
+import { loadHomeOverview } from "@/lib/data/overview";
+import { getDataSource, getViewer } from "@/lib/data/server";
+import { unwrap } from "@/lib/data/unwrap";
 
-// TODO(T6/T19): replace fixtures with listRooms()/listMemories() from src/lib/data.
-export default function HomePage() {
-  const recent = [...mockMemories].sort((a, b) => b.memory_date.localeCompare(a.memory_date)).slice(0, 2);
-  const places = mockTags.filter((tag) => tag.type === "place");
-  const people = mockTags.filter((tag) => tag.type === "person");
-  const moodCounts = mockMemories.reduce<Record<string, number>>((acc, memory) => {
-    if (memory.mood) acc[memory.mood] = (acc[memory.mood] ?? 0) + 1;
-    return acc;
-  }, {});
+export default async function HomePage() {
+  const [viewer, source] = await Promise.all([getViewer(), getDataSource()]);
+  const { rooms, memoryCounts, recent, places, people, moodCounts, totalMemories } = unwrap(await loadHomeOverview(source));
+  const firstRoom = rooms[0];
+  const quickAddHref = firstRoom ? `/rooms/${firstRoom.id}/memories/new?chooseRoom=1` : "/rooms/new";
   const topMood = Object.entries(moodCounts).sort((a, b) => b[1] - a[1])[0]?.[0] as keyof typeof MOOD_LABELS | undefined;
 
   const stats = [
-    { icon: CameraIcon, value: mockMemories.length, label: "memories added" },
+    { icon: CameraIcon, value: totalMemories, label: "memories added" },
     { icon: PinIcon, value: places.length, label: "places visited" },
     { icon: UsersIcon, value: people.length, label: "people in your memories" },
   ];
@@ -34,7 +32,7 @@ export default function HomePage() {
         <header className="grid gap-y-1 sm:grid-cols-[1fr_auto] sm:items-center sm:gap-x-3">
           <h1 className="title-xl sm:col-start-1 sm:row-start-1">Your memories</h1>
           <p className="font-display flex items-center gap-1.5 text-lg text-[var(--color-sage-strong)] sm:col-start-1 sm:row-start-2">
-            Welcome back, Sea <LeafIcon className="size-4" />
+            Welcome back, {viewer?.display_name ?? "friend"} <LeafIcon className="size-4" />
           </p>
           <div className="mt-3 flex justify-self-end gap-2 sm:col-start-2 sm:row-start-1 sm:mt-0">
             <Link className="btn btn-primary" href="/rooms/new"><PlusIcon className="size-4" /> Create room</Link>
@@ -45,11 +43,11 @@ export default function HomePage() {
         <section aria-labelledby="rooms-heading" className="mt-8 scroll-mt-6" id="rooms">
           <div className="mb-3 flex items-baseline justify-between">
             <h2 className="title-md" id="rooms-heading">Your rooms</h2>
-            <span className="text-xs text-[var(--color-muted)]">{mockRooms.length} rooms</span>
+            <span className="text-xs text-[var(--color-muted)]">{rooms.length} {rooms.length === 1 ? "room" : "rooms"}</span>
           </div>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {mockRooms.map((room) => {
-              const count = mockMemories.filter((memory) => memory.room_id === room.id).length;
+            {rooms.map((room) => {
+              const count = memoryCounts.get(room.id) ?? 0;
               return (
                 <Link className="panel group overflow-hidden transition-shadow duration-200 hover:shadow-[var(--shadow-soft)]" href={`/rooms/${room.id}`} key={room.id}>
                   <RoomCover className="aspect-[16/9]" image={DEFAULT_ROOM_COVER_IMAGE} theme={room.theme}>
@@ -77,12 +75,12 @@ export default function HomePage() {
         <section aria-labelledby="recent-heading" className="mt-9">
           <div className="mb-3 flex items-baseline justify-between">
             <h2 className="title-md" id="recent-heading">Recent private memories</h2>
-            <Link className="inline-flex items-center gap-1 text-xs font-medium text-[var(--color-green)] hover:underline" href={`/rooms/${mockRooms[0].id}/gallery`}>
+            <Link className="inline-flex items-center gap-1 text-xs font-medium text-[var(--color-green)] hover:underline" href={firstRoom ? `/rooms/${firstRoom.id}/gallery` : "/rooms"}>
               View all memories <ArrowRightIcon className="size-3.5" />
             </Link>
           </div>
           <div className="grid gap-4 md:grid-cols-2">
-            {recent.map((memory) => <RecentDiaryCard key={memory.id} memory={memory} />)}
+            {recent.length === 0 ? <p className="text-sm text-[var(--color-muted)]">No memories yet. Open a room and add your first one.</p> : recent.map((memory) => <RecentDiaryCard key={memory.id} memory={memory} room={rooms.find((item) => item.id === memory.room_id)} />)}
           </div>
         </section>
       </div>
@@ -107,14 +105,14 @@ export default function HomePage() {
         <section aria-labelledby="quick-heading" className="rounded-[var(--radius-lg)] bg-[var(--color-sage)]/70 p-4">
           <h2 className="title-md" id="quick-heading">Quick add memory</h2>
           <p className="mt-1 text-xs text-[var(--color-muted)]">Capture a thought, a photo, or both.</p>
-          <Link className="btn btn-primary mt-3 w-full" href={`/rooms/${mockRooms[0].id}/memories/new?chooseRoom=1`}><PlusIcon className="size-4" /> Add memory</Link>
+          <Link className="btn btn-primary mt-3 w-full" href={quickAddHref}><PlusIcon className="size-4" /> Add memory</Link>
           <div className="mt-2.5 grid grid-cols-3 gap-2">
             {[
               { icon: ImageIcon, label: "Photos" },
               { icon: TextIcon, label: "Text only" },
               { icon: SmileIcon, label: "Add mood" },
             ].map(({ icon: Icon, label }) => (
-              <Link className="flex min-h-14 flex-col items-center justify-center gap-1 rounded-lg border border-[var(--color-border)] bg-[var(--color-paper)] text-[0.68rem] font-medium text-[var(--color-green-deep)] transition-colors hover:border-[var(--color-sage-strong)]" href={`/rooms/${mockRooms[0].id}/memories/new?chooseRoom=1`} key={label}>
+              <Link className="flex min-h-14 flex-col items-center justify-center gap-1 rounded-lg border border-[var(--color-border)] bg-[var(--color-paper)] text-[0.68rem] font-medium text-[var(--color-green-deep)] transition-colors hover:border-[var(--color-sage-strong)]" href={quickAddHref} key={label}>
                 <Icon className="size-4" /> {label}
               </Link>
             ))}
@@ -142,8 +140,7 @@ function formatDate(date: string) {
   return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" }).format(new Date(`${date}T00:00:00Z`));
 }
 
-function RecentDiaryCard({ memory }: { memory: Memory }) {
-  const room = mockRooms.find((item) => item.id === memory.room_id);
+function RecentDiaryCard({ memory, room }: { memory: Memory; room: Room | undefined }) {
   const cover = memory.media.find((item) => item.id === memory.cover_media_id) ?? memory.media[0];
 
   return (

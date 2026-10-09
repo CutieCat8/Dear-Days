@@ -1,17 +1,23 @@
 "use client";
 
+import { InvitePanel } from "@/components/features/rooms/invite-panel";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 
 import { Breadcrumbs } from "@/components/shared/breadcrumbs";
 import { PlusIcon, StarIcon } from "@/components/shared/icons";
 import { THEME_LABELS } from "@/components/shared/room-cover";
 import type { Room } from "@/lib/contracts/types";
+import { createBrowserDataSource } from "@/lib/data/browser";
+import type { RoomMember } from "@/lib/data/profile";
 
 type RoomFormProps = {
   mode: "create" | "edit";
   room?: Room;
   cancelHref: string;
+  /** People in the room (names from their profiles). */
+  members?: RoomMember[];
 };
 
 type Theme = Room["theme"];
@@ -48,7 +54,12 @@ function Avatar({ name, tone }: { name: string; tone: string }) {
   );
 }
 
-export function RoomForm({ mode, room, cancelHref }: RoomFormProps) {
+export function RoomForm({ mode, room, cancelHref, members = [] }: RoomFormProps) {
+  const router = useRouter();
+  const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
+  const [pending, setPending] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const isEdit = mode === "edit";
   const [name, setName] = useState(room?.name ?? "");
   const [period, setPeriod] = useState(room?.life_period ?? "");
@@ -56,13 +67,38 @@ export function RoomForm({ mode, room, cancelHref }: RoomFormProps) {
   const [description, setDescription] = useState("");
   const [theme, setTheme] = useState<Theme>(room?.theme ?? "sunrise");
 
-  // TODO(T7/T9): call createRoom/updateRoom from src/lib/data.
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    setError(null);
+    setFieldErrors({});
+    setPending(true);
+    const source = createBrowserDataSource();
+    const input = { name, life_period: period, theme };
+    const result = isEdit && room ? await source.updateRoom(room.id, input) : await source.createRoom(input);
+    if (!result.ok) {
+      // the form keeps everything the user typed, including the chosen theme
+      setError(result.error.message);
+      setFieldErrors(result.error.field_errors ?? {});
+      setPending(false);
+      return;
+    }
+    router.push(`/rooms/${result.data.id}`);
+    router.refresh();
   }
 
-  const memberCount = room?.member_count ?? 1;
-  const hasSecondMember = isEdit && memberCount >= 2;
+  async function handleDelete() {
+    if (!room) return;
+    setPending(true);
+    setError(null);
+    const result = await createBrowserDataSource().deleteRoom(room.id);
+    if (!result.ok) {
+      setError(result.error.message);
+      setPending(false);
+      return;
+    }
+    router.push("/rooms");
+    router.refresh();
+  }
 
   return (
     <div>
@@ -85,6 +121,7 @@ export function RoomForm({ mode, room, cancelHref }: RoomFormProps) {
           <div>
             <label className="field-label" htmlFor="room-name">Room name</label>
             <input className="field-input" id="room-name" maxLength={80} name="name" onChange={(event) => setName(event.target.value)} placeholder="e.g. University Days" required value={name} />
+            {fieldErrors.name ? <p className="mt-1 text-xs text-[#8a3a3a]">{fieldErrors.name[0]}</p> : null}
           </div>
 
           <div>
@@ -95,8 +132,8 @@ export function RoomForm({ mode, room, cancelHref }: RoomFormProps) {
 
           <div>
             <label className="field-label" htmlFor="room-description">Description</label>
-            <textarea className="field-input" id="room-description" maxLength={DESCRIPTION_MAX} name="description" onChange={(event) => setDescription(event.target.value)} placeholder="A few words about this chapter of your life" rows={4} value={description} />
-            <p className="mt-1 text-right text-[0.7rem] text-[var(--color-muted)]">{description.length} / {DESCRIPTION_MAX}</p>
+            <textarea className="field-input disabled:cursor-not-allowed disabled:opacity-60" disabled id="room-description" maxLength={DESCRIPTION_MAX} name="description" onChange={(event) => setDescription(event.target.value)} placeholder="A few words about this chapter of your life" rows={4} value={description} />
+            <p className="mt-1 flex justify-between text-[0.7rem] text-[var(--color-muted)]"><span>Not saved yet: rooms do not have a description in the data contract.</span><span>{description.length} / {DESCRIPTION_MAX}</span></p>
           </div>
 
           <fieldset>
@@ -120,10 +157,24 @@ export function RoomForm({ mode, room, cancelHref }: RoomFormProps) {
             </div>
           </fieldset>
 
+          {error ? <p className="rounded-lg bg-[#f8e3e3] px-3 py-2 text-xs text-[#8a3a3a]" role="alert">{error}</p> : null}
           <div className="flex flex-col gap-2.5 sm:flex-row">
-            <button className="btn btn-primary sm:min-w-44" type="submit">{isEdit ? "Save changes" : "Create room"}</button>
+            <button className="btn btn-primary disabled:opacity-60 sm:min-w-44" disabled={pending} type="submit">{pending ? "Saving…" : isEdit ? "Save changes" : "Create room"}</button>
             <Link className="btn btn-secondary sm:min-w-32" href={cancelHref}>Cancel</Link>
           </div>
+          {isEdit ? (
+            <div className="border-t border-[var(--color-border)] pt-4">
+              {confirmDelete ? (
+                <div className="flex flex-wrap items-center gap-2.5 text-xs">
+                  <span className="text-[#8a3a3a]">Delete this room, all its memories and photos for good?</span>
+                  <button className="btn btn-sm bg-[#8a3a3a] text-white disabled:opacity-60" disabled={pending} onClick={handleDelete} type="button">Delete room</button>
+                  <button className="btn btn-secondary btn-sm" disabled={pending} onClick={() => setConfirmDelete(false)} type="button">Keep it</button>
+                </div>
+              ) : (
+                <button className="text-xs font-medium text-[#8a3a3a] hover:underline" onClick={() => setConfirmDelete(true)} type="button">Delete this room…</button>
+              )}
+            </div>
+          ) : null}
         </form>
 
         <div className="grid gap-4 lg:sticky lg:top-6">
@@ -141,36 +192,33 @@ export function RoomForm({ mode, room, cancelHref }: RoomFormProps) {
 
           <section aria-labelledby="members-heading" className="panel p-5">
             <h2 className="font-display text-lg text-[var(--color-green-deep)]" id="members-heading">
-              Members <span className="text-sm text-[var(--color-muted)]">({hasSecondMember ? 2 : 1} of 2 people)</span>
+              Members <span className="text-sm text-[var(--color-muted)]">({Math.max(members.length, 1)} of 2 people)</span>
             </h2>
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
-              <div className="flex items-center gap-3">
-                <Avatar name="Sea" tone="#2f5a4a" />
-                <div>
-                  <p className="text-sm font-semibold text-[var(--color-ink)]">Sea</p>
-                  <p className="inline-flex items-center gap-1 text-xs font-medium text-[#a07a1c]"><StarIcon className="size-3" /> Owner</p>
-                </div>
-              </div>
-              {hasSecondMember ? (
-                <div className="flex items-center gap-3">
-                  <Avatar name="Mint" tone="#8a7f9c" />
+              {members.map((member) => (
+                <div className="flex items-center gap-3" key={member.user_id}>
+                  <Avatar name={member.display_name} tone={member.role === "owner" ? "#2f5a4a" : "#8a7f9c"} />
                   <div>
-                    <p className="text-sm font-semibold text-[var(--color-ink)]">Mint</p>
-                    <p className="text-xs text-[var(--color-muted)]">Member</p>
+                    <p className="text-sm font-semibold text-[var(--color-ink)]">{member.display_name}</p>
+                    {member.role === "owner" ? (
+                      <p className="inline-flex items-center gap-1 text-xs font-medium text-[#a07a1c]"><StarIcon className="size-3" /> Owner</p>
+                    ) : (
+                      <p className="text-xs text-[var(--color-muted)]">Member</p>
+                    )}
                   </div>
                 </div>
-              ) : (
+              ))}
+              {members.length < 2 ? (
                 <div className="flex items-center gap-3">
                   <span aria-hidden="true" className="flex size-12 shrink-0 items-center justify-center rounded-full border-2 border-dashed border-[var(--color-border-strong)] text-[var(--color-muted)]">
                     <PlusIcon className="size-5" />
                   </span>
                   <div>
-                    {/* TODO(T7/T9): invite flow. For now the invite code is shown once the room exists. */}
-                    <button className="text-sm font-semibold text-[var(--color-green)] disabled:cursor-not-allowed disabled:opacity-60" disabled title="Available after the room is created" type="button">Add member</button>
-                    <p className="text-xs text-[var(--color-muted)]">{isEdit && room ? `Invite code ${room.invite_code}` : "Invite one person after creating the room"}</p>
+                    <p className="text-sm font-semibold text-[var(--color-green)]">Add friend</p>
+                    {isEdit && room ? <InvitePanel inviteCode={room.invite_code} roomName={room.name} /> : <p className="text-xs text-[var(--color-muted)]">After creating the room you get an invite code and link to share with one person.</p>}
                   </div>
                 </div>
-              )}
+              ) : null}
             </div>
           </section>
         </div>

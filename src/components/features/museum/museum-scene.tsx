@@ -12,6 +12,7 @@ import { MoodBadge } from "@/components/shared/mood-badge";
 import type { Memory } from "@/lib/contracts/types";
 
 import { resolveMemoryCover } from "./memory-cover";
+import { useFreshMemories } from "./use-fresh-memories";
 import styles from "./museum-scene.module.css";
 import type { CameraApi, CameraState, SceneLayout } from "./room-3d/camera-controller";
 import { panelWidthFor } from "./room-3d/config";
@@ -57,7 +58,8 @@ function SceneFallback({ memories }: { memories: Memory[] }) {
   );
 }
 
-export function MuseumScene({ memories }: MuseumSceneProps) {
+export function MuseumScene({ memories: loaded }: MuseumSceneProps) {
+  const memories = useFreshMemories(loaded);
   // Objects in the room, in a stable order; previous/next walk exactly these.
   const shown = useMemo(() => visibleMemories(memories), [memories]);
   const [selectedId, setSelectedId] = useState<string | null>(null);

@@ -8,7 +8,11 @@
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "check:fixtures": "tsx scripts/validate-fixtures.ts"
+    "check:fixtures": "tsx scripts/validate-fixtures.ts",
+    "test:unit": "tsx --test tests/*.test.ts",
+    "test:db": "bash scripts/test-db.sh",
+    "gen:types": "npx supabase gen types typescript --local --schema public > src/lib/supabase/database.types.ts",
+    "test:integration": "tsx scripts/test-supabase.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
