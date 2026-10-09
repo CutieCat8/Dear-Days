@@ -1,36 +1,32 @@
+import { ProfileForm } from "@/components/features/profile/profile-form";
 import { Breadcrumbs } from "@/components/shared/breadcrumbs";
 import { LockIcon, UsersIcon } from "@/components/shared/icons";
 import { signOutAction } from "@/lib/auth/actions";
+import { unwrapForPage } from "@/lib/data/page-guards";
+import { getCurrentProfile, getProfileStats } from "@/lib/data/profile";
 
-// TODO(T5/T19): replace placeholder values with the authenticated profile.
-export default function ProfilePage() {
+export default async function ProfilePage() {
+  const [profileResult, statsResult] = await Promise.all([getCurrentProfile(), getProfileStats()]);
+  const profile = unwrapForPage(profileResult);
+  const stats = statsResult.ok ? statsResult.data : null;
+
   return (
     <div>
       <Breadcrumbs items={[{ label: "Home", href: "/" }, { label: "Profile" }]} />
       <header className="flex items-center gap-4">
-        <span aria-hidden="true" className="font-display flex size-16 items-center justify-center rounded-full bg-[var(--color-green)] text-2xl text-white">S</span>
+        <span aria-hidden="true" className="font-display flex size-16 items-center justify-center rounded-full bg-[var(--color-green)] text-2xl text-white">{profile.display_name.charAt(0).toUpperCase()}</span>
         <div>
-          <h1 className="title-xl">Sea</h1>
-          <p className="text-sm text-[var(--color-muted)]">Collecting ordinary, lovely days — one photo at a time.</p>
+          <h1 className="title-xl">{profile.display_name}</h1>
+          <p className="text-sm text-[var(--color-muted)]">
+            {stats
+              ? `${stats.rooms} ${stats.rooms === 1 ? "room" : "rooms"} · ${stats.memories} ${stats.memories === 1 ? "memory" : "memories"} written`
+              : "Collecting ordinary, lovely days — one photo at a time."}
+          </p>
         </div>
       </header>
 
       <div className="mt-6 grid gap-5 lg:grid-cols-2">
-        <form className="panel grid gap-4 p-5">
-          <div>
-            <h2 className="title-md">Account settings</h2>
-            <p className="text-xs text-[var(--color-muted)]">Keep your information up to date.</p>
-          </div>
-          <div>
-            <label className="field-label" htmlFor="display-name">Display name</label>
-            <input className="field-input" defaultValue="Sea" id="display-name" name="display_name" />
-          </div>
-          <div>
-            <label className="field-label" htmlFor="bio">About you <small>(optional)</small></label>
-            <textarea className="field-input !min-h-24" defaultValue="Collecting little moments, big feelings, and the places that make life brighter." id="bio" maxLength={160} name="bio" />
-          </div>
-          <button className="btn btn-primary self-start" type="button">Save changes</button>
-        </form>
+        <ProfileForm displayName={profile.display_name} />
 
         <section className="panel grid content-start gap-4 p-5">
           <h2 className="title-md flex items-center gap-2"><LockIcon className="size-4" /> Your privacy</h2>

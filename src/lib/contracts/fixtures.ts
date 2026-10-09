@@ -7,7 +7,7 @@ const MEMBER_ID = "20000000-0000-4000-8000-000000000002";
 const CREATED_AT = "2026-09-01T08:00:00.000Z";
 
 export const mockProfiles = [
-  { id: OWNER_ID, display_name: "Pim", avatar_url: null, created_at: "2026-08-30T08:00:00.000Z", updated_at: "2026-08-30T08:00:00.000Z" },
+  { id: OWNER_ID, display_name: "Sea", avatar_url: null, created_at: "2026-08-30T08:00:00.000Z", updated_at: "2026-08-30T08:00:00.000Z" },
   { id: MEMBER_ID, display_name: "Mint", avatar_url: null, created_at: "2026-09-02T07:30:00.000Z", updated_at: "2026-09-02T07:30:00.000Z" },
 ] satisfies Profile[];
 

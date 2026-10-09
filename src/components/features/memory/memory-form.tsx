@@ -1,13 +1,18 @@
 "use client";
 
+import { zodResolver } from "@hookform/resolvers/zod";
 import Link from "next/link";
-import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useRef, useState, type KeyboardEvent } from "react";
+import { useForm, useWatch } from "react-hook-form";
 
 import { Breadcrumbs } from "@/components/shared/breadcrumbs";
 import { CalendarIcon, CameraIcon, CloseIcon, EditIcon, FrownIcon, GripIcon, InfoIcon, LeafIcon, LockIcon, MehIcon, PinIcon, SearchIcon, SmileIcon, SparkleIcon, StarIcon, TrashIcon, UsersIcon } from "@/components/shared/icons";
 import { MEDIA_CONSTRAINTS, MOOD_LABELS, MOODS } from "@/lib/contracts/constants";
-import { mockTags } from "@/lib/contracts/fixtures";
-import type { Memory, Mood, Room } from "@/lib/contracts/types";
+import { memoryInputSchema } from "@/lib/contracts/schemas";
+import type { MediaMutation, Memory, MemoryInput, Mood, NewMediaMetadata, Room, Tag } from "@/lib/contracts/types";
+import { UPLOAD_FIELD_PREFIX } from "@/lib/data/form-fields";
+import { saveMemoryAction } from "@/lib/data/memory-actions";
 
 type MemoryFormProps = {
   mode: "create" | "edit";
@@ -16,25 +21,51 @@ type MemoryFormProps = {
   /** Rooms the user can post to. Only used when creating. */
   rooms?: Room[];
   memory?: Memory;
+  /** Existing tags of every room in `rooms`, used for suggestions. */
+  tags: Tag[];
 };
 
-type Photo = { id: string; url: string; name: string; error?: string; file?: File };
+// Kept photos use their media id; new photos use a client_id that pairs metadata with the uploaded file.
+type Photo = { id: string; url: string | null; name: string; kind: "existing" | "new"; file?: File };
+
+// React Hook Form owns the plain fields; photos and tags are custom widgets merged in on submit.
+const fieldsSchema = memoryInputSchema.pick({ title: true, memory_date: true, body: true, mood: true });
+type MemoryFields = Pick<MemoryInput, "title" | "memory_date" | "body" | "mood">;
+const FIELD_NAMES = ["title", "memory_date", "body", "mood"] as const;
 
 const MOOD_ICONS: Record<Mood, typeof SmileIcon> = { awful: FrownIcon, stressed: MehIcon, sad: FrownIcon, relaxed: LeafIcon, happy: SmileIcon, excited: SparkleIcon };
 const MAX_BODY = 10_000;
 
-export function MemoryForm({ mode, room: initialRoom, rooms = [initialRoom], memory }: MemoryFormProps) {
+function FieldError({ id, message }: { id: string; message?: string }) {
+  return message ? <p className="mt-1.5 text-xs text-[var(--color-danger)]" id={id}>{message}</p> : null;
+}
+
+function mediaRef(photo: Photo): MediaMutation["order"][number] {
+  return photo.kind === "existing" ? { kind: "existing", id: photo.id } : { kind: "new", client_id: photo.id };
+}
+
+export function MemoryForm({ mode, room: initialRoom, rooms = [initialRoom], memory, tags }: MemoryFormProps) {
   const isEdit = mode === "edit";
+  const router = useRouter();
   const [roomId, setRoomId] = useState(initialRoom.id);
   const room = rooms.find((item) => item.id === roomId) ?? initialRoom;
-  const [title, setTitle] = useState(memory?.title ?? "");
-  const [date, setDate] = useState(memory?.memory_date ?? new Date().toISOString().slice(0, 10));
-  const [body, setBody] = useState(memory?.body ?? "");
-  const [mood, setMood] = useState<Mood | null>(memory?.mood ?? null);
+  const { control, register, handleSubmit, setValue, setError, formState: { errors, isSubmitting } } = useForm<MemoryFields>({
+    resolver: zodResolver(fieldsSchema),
+    defaultValues: {
+      title: memory?.title ?? "",
+      memory_date: memory?.memory_date ?? new Date().toISOString().slice(0, 10),
+      body: memory?.body ?? "",
+      mood: memory?.mood ?? null,
+    },
+  });
+  const body = useWatch({ control, name: "body" }) ?? "";
+  const mood = useWatch({ control, name: "mood" });
+  const setMood = (value: Mood | null) => setValue("mood", value, { shouldDirty: true });
+  const [formError, setFormError] = useState<string | null>(null);
   const [people, setPeople] = useState(memory?.tags.filter((tag) => tag.type === "person").map((tag) => tag.label) ?? []);
   const [places, setPlaces] = useState(memory?.tags.filter((tag) => tag.type === "place").map((tag) => tag.label) ?? []);
   const [photos, setPhotos] = useState<Photo[]>(
-    memory?.media.filter((item) => item.signed_url).map((item) => ({ id: item.id, url: item.signed_url as string, name: item.alt_text })) ?? [],
+    memory?.media.map((item) => ({ id: item.id, url: item.signed_url, name: item.alt_text, kind: "existing" })) ?? [],
   );
   const [photoError, setPhotoError] = useState<string | null>(null);
   const [coverId, setCoverId] = useState<string | null>(memory?.cover_media_id ?? null);
@@ -68,7 +99,7 @@ export function MemoryForm({ mode, room: initialRoom, rooms = [initialRoom], mem
       }
       const url = URL.createObjectURL(file);
       objectUrls.current.push(url);
-      next.push({ id: crypto.randomUUID(), url, name: file.name.replace(/\.[^.]+$/, ""), file });
+      next.push({ id: crypto.randomUUID(), url, name: file.name.replace(/\.[^.]+$/, ""), kind: "new", file });
     }
 
     setPhotoError(message);
@@ -86,9 +117,56 @@ export function MemoryForm({ mode, room: initialRoom, rooms = [initialRoom], mem
     });
   }
 
-  // TODO(T11-T16): build MemoryInput + NewMediaUpload[] and call createMemory(room.id, ...)/updateMemory.
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  async function save(fields: MemoryFields) {
+    setFormError(null);
+    setPhotoError(null);
+
+    const added: NewMediaMetadata[] = photos.flatMap((photo) => photo.kind === "new" && photo.file
+      ? [{ client_id: photo.id, file_name: photo.file.name.slice(0, 255) || "photo", mime_type: photo.file.type as NewMediaMetadata["mime_type"], size_bytes: photo.file.size, alt_text: photo.name.trim().slice(0, 300) }]
+      : []);
+    const input: MemoryInput = {
+      ...fields,
+      period_label: memory?.period_label ?? null,
+      tags: [...people.map((label) => ({ type: "person" as const, label })), ...places.map((label) => ({ type: "place" as const, label }))],
+      media: {
+        existing: photos.filter((photo) => photo.kind === "existing").map((photo) => ({ id: photo.id, alt_text: photo.name.trim().slice(0, 300) })),
+        added,
+        removed_media_ids: (memory?.media ?? []).filter((item) => !photos.some((photo) => photo.id === item.id)).map((item) => item.id),
+        order: photos.map(mediaRef),
+        cover: cover ? mediaRef(cover) : null,
+      },
+    };
+    const checked = memoryInputSchema.safeParse(input);
+    if (!checked.success) {
+      setFormError(checked.error.issues[0]?.message ?? "Please check the form.");
+      return;
+    }
+
+    const formData = new FormData();
+    formData.set("input", JSON.stringify(checked.data));
+    for (const photo of photos) if (photo.kind === "new" && photo.file) formData.set(`${UPLOAD_FIELD_PREFIX}${photo.id}`, photo.file);
+
+    let result: Awaited<ReturnType<typeof saveMemoryAction>>;
+    try {
+      result = await saveMemoryAction(room.id, memory?.id ?? null, formData);
+    } catch {
+      setFormError("Could not reach the server. Check your connection and try again.");
+      return;
+    }
+    if (!result.ok) {
+      const fieldErrors = result.error.field_errors ?? {};
+      let shown = false;
+      for (const name of FIELD_NAMES) {
+        const message = fieldErrors[name]?.[0];
+        if (message) { setError(name, { message }); shown = true; }
+      }
+      const mediaMessage = Object.entries(fieldErrors).find(([key]) => key.startsWith("media"))?.[1]?.[0];
+      if (mediaMessage) { setPhotoError(mediaMessage); shown = true; }
+      if (!shown || result.error.code !== "VALIDATION_ERROR") setFormError(result.error.message);
+      return;
+    }
+    router.push(`/rooms/${result.data.room_id}/memories/${result.data.id}`);
+    router.refresh();
   }
 
   return (
@@ -98,24 +176,30 @@ export function MemoryForm({ mode, room: initialRoom, rooms = [initialRoom], mem
       items={[{ label: "Home", href: "/" }, { label: room.name, href: `/rooms/${room.id}` }, { label: isEdit ? "Edit memory" : "New memory" }]}
       right={<><span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--color-sage)]/70 px-2.5 py-1 text-[0.7rem] font-medium text-[var(--color-green-deep)]"><LockIcon className="size-3.5" /> Private room</span><span className="inline-flex items-center gap-1.5 text-[0.75rem]"><UsersIcon className="size-4" /> {room.member_count} members</span></>}
     />
-    <form className="grid items-stretch gap-5 lg:grid-cols-[1fr_19rem]" onSubmit={handleSubmit}>
+    <form className="grid items-stretch gap-5 lg:grid-cols-[1fr_19rem]" noValidate onSubmit={handleSubmit(save)}>
       <section className="panel grid gap-5 p-5 sm:p-7">
         <h1 className="title-xl">{isEdit ? "Edit memory" : "New memory"}</h1>
+        {formError ? <p className="rounded-lg border border-[var(--color-danger)]/30 bg-[var(--color-danger)]/5 px-3 py-2 text-sm text-[var(--color-danger)]" role="alert">{formError}</p> : null}
 
         <div>
           <label className="field-label" htmlFor="title">Title</label>
-          <input className="field-input" id="title" maxLength={120} name="title" onChange={(event) => setTitle(event.target.value)} placeholder="e.g. A day at Doi Suthep" required value={title} />
+          <input aria-describedby={errors.title ? "title-error" : undefined} aria-invalid={Boolean(errors.title)} className="field-input" id="title" maxLength={120} placeholder="e.g. A day at Doi Suthep" required {...register("title")} />
+          <FieldError id="title-error" message={errors.title?.message} />
         </div>
 
         <div>
           <label className="field-label" htmlFor="memory-date">Date</label>
-          <div className="relative sm:max-w-56"><CalendarIcon className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[var(--color-muted)]" /><input className="field-input pl-9 [&::-webkit-calendar-picker-indicator]:hidden" id="memory-date" name="memory_date" onChange={(event) => setDate(event.target.value)} required type="date" value={date} /></div>
+          <div className="relative sm:max-w-56"><CalendarIcon className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[var(--color-muted)]" /><input aria-describedby={errors.memory_date ? "memory-date-error" : undefined} aria-invalid={Boolean(errors.memory_date)} className="field-input pl-9 [&::-webkit-calendar-picker-indicator]:hidden" id="memory-date" required type="date" {...register("memory_date")} /></div>
+          <FieldError id="memory-date-error" message={errors.memory_date?.message} />
         </div>
 
         <div>
           <label className="field-label" htmlFor="body">Diary</label>
-          <textarea className="field-input" id="body" maxLength={MAX_BODY} name="body" onChange={(event) => setBody(event.target.value)} placeholder="What do you want to remember?" required value={body} />
-          <p className="mt-1 text-right text-[0.7rem] text-[var(--color-muted)]">{body.length.toLocaleString()} / {MAX_BODY.toLocaleString()}</p>
+          <textarea aria-describedby={errors.body ? "body-error" : undefined} aria-invalid={Boolean(errors.body)} className="field-input" id="body" maxLength={MAX_BODY} placeholder="What do you want to remember?" required {...register("body")} />
+          <div className="mt-1 flex justify-between gap-3">
+            <FieldError id="body-error" message={errors.body?.message} />
+            <p className="ml-auto text-[0.7rem] text-[var(--color-muted)]">{body.length.toLocaleString()} / {MAX_BODY.toLocaleString()}</p>
+          </div>
         </div>
 
         <div>
@@ -148,8 +232,12 @@ export function MemoryForm({ mode, room: initialRoom, rooms = [initialRoom], mem
                     }}
                   >
                     <div className={`relative aspect-[4/3] overflow-hidden rounded-xl bg-[var(--color-sage)] ${isCover ? "ring-2 ring-[var(--color-green)] ring-offset-2 ring-offset-[var(--color-paper)]" : ""}`}>
-                      {/* eslint-disable-next-line @next/next/no-img-element -- blob/signed URLs are not optimizable */}
-                      <img alt={photo.name} className="size-full object-cover" draggable={false} src={photo.url} />
+                      {photo.url ? (
+                        // eslint-disable-next-line @next/next/no-img-element -- blob/signed URLs are not optimizable
+                        <img alt={photo.name} className="size-full object-cover" draggable={false} src={photo.url} />
+                      ) : (
+                        <span className="flex size-full items-center justify-center text-[0.7rem] text-[var(--color-muted)]">Preview unavailable</span>
+                      )}
                       <button
                         aria-label={`Reorder photo ${photo.name}. Drag, or use the left and right arrow keys.`}
                         className="absolute left-2 top-2 flex size-7 cursor-grab items-center justify-center rounded-md bg-white/70 text-[var(--color-green-deep)] backdrop-blur-sm transition-colors hover:bg-white/90 active:cursor-grabbing"
@@ -184,7 +272,7 @@ export function MemoryForm({ mode, room: initialRoom, rooms = [initialRoom], mem
                       )}
                     </div>
                     <div className="mt-1.5 flex items-center gap-1.5">
-                      
+
                       {editingId === photo.id ? (
                         <input
                           aria-label="Photo caption"
@@ -235,8 +323,8 @@ export function MemoryForm({ mode, room: initialRoom, rooms = [initialRoom], mem
           </div>
         </fieldset>
 
-        <TagInput icon={<UsersIcon className="size-4" />} hint="People who were part of this memory." label="People tags" noun="people" onChange={setPeople} suggestions={mockTags.filter((tag) => tag.room_id === room.id && tag.type === "person").map((tag) => tag.label)} values={people} />
-        <TagInput icon={<PinIcon className="size-4" />} hint="Places where this memory happened." label="Places tags" noun="places" onChange={setPlaces} suggestions={mockTags.filter((tag) => tag.room_id === room.id && tag.type === "place").map((tag) => tag.label)} values={places} />
+        <TagInput icon={<UsersIcon className="size-4" />} hint="People who were part of this memory." label="People tags" noun="people" onChange={setPeople} suggestions={tags.filter((tag) => tag.room_id === room.id && tag.type === "person").map((tag) => tag.label)} values={people} />
+        <TagInput icon={<PinIcon className="size-4" />} hint="Places where this memory happened." label="Places tags" noun="places" onChange={setPlaces} suggestions={tags.filter((tag) => tag.room_id === room.id && tag.type === "place").map((tag) => tag.label)} values={places} />
 
         <div>
           <label className="field-label" htmlFor="room-id">Room</label>
@@ -251,7 +339,9 @@ export function MemoryForm({ mode, room: initialRoom, rooms = [initialRoom], mem
         </div>
 
         <div className="mt-auto grid gap-3">
-          <button className="btn btn-primary" type="submit">{isEdit ? "Save changes" : "Save memory"}</button>
+          <button aria-disabled={isSubmitting} className="btn btn-primary" disabled={isSubmitting} type="submit">
+            {isSubmitting ? "Saving…" : isEdit ? "Save changes" : "Save memory"}
+          </button>
           <Link className="btn btn-secondary" href={isEdit && memory ? `/rooms/${room.id}/memories/${memory.id}` : `/rooms/${room.id}`}>Cancel</Link>
         </div>
       </aside>

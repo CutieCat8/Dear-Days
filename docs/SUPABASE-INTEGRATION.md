@@ -65,9 +65,14 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=sb_publishable_...   # หรือ legacy anon ke
 | 1 | `src/lib/auth/actions.ts:97` | ถ้าซีใช้ trigger `handle_new_user` (ข้อเสนอ 3.4) → ลบ TODO นี้ทิ้ง; ถ้าไม่ใช้ trigger → upsert `profiles` ตรงนี้หลัง `signUp` สำเร็จ | R2 |
 | 2 | `src/lib/auth/actions.ts:98` | ถ้าเปิด Confirm email → ใส่ `options.emailRedirectTo` และสร้าง `src/app/auth/confirm/route.ts` ที่เรียก `supabase.auth.verifyOtp({ type, token_hash })` แล้ว redirect ไป `next` (ต้องแก้ email template ให้ใช้ `{{ .TokenHash }}`) | Dashboard setting |
 | 3 | `src/components/features/auth/auth-screen.tsx:121` | "Forgot password?" — ทำ flow `resetPasswordForEmail` + หน้าตั้งรหัสใหม่ หรือเอาลิงก์ออกจาก MVP | ทีมตัดสินใจ |
-| 4 | `src/app/(app)/layout.tsx:6` | เปลี่ยน `userName="Sea"` เป็น `display_name` จาก `getCurrentProfile()` | R5 |
-| 5 | `src/app/(app)/profile/page.tsx:5` | เปลี่ยนค่า placeholder เป็น profile จริง, ปุ่ม Save → `updateProfile` | R5 |
-| 6 | `src/lib/data/` (ยังไม่มี) | implement `DearDaysDataSource` (`src/lib/contracts/data-functions.ts`) ด้วย `createSupabaseServerClient()` แล้วให้หน้าเลิก import fixtures | R5–R12 |
+| 4 | `src/lib/data/session.ts` → `getSessionUserId()` | เปลี่ยนจาก mock user เป็น `auth.getClaims()` → `claims.sub` | R6 |
+| 5 | `src/lib/data/profile.ts` | `getCurrentProfile` / `updateProfile` / `getProfileStats` → query `profiles`, `room_members`, `memories` (ดู TODO ในไฟล์) | R5 |
+| 6 | `src/lib/data/memories.ts` | `listMemories` … `deleteMemory`, `listTags`, `upsertTags` → Supabase; `applyMediaPlan` → Storage upload/signed URL/cleanup | R6–R7 |
+| 7 | `src/lib/data/rooms.ts` | read-only `listRooms`/`getRoom` ชั่วคราว — สิรวิชญ์แทนด้วยของจริง | R9 |
+| 8 | `src/lib/data/mock-store.ts` | ลบทิ้งเมื่อทุก function อ่าน Supabase แล้ว | R6 |
+| 9 | `next.config.ts` → `bodySizeLimit` | ลดลงถ้าเปลี่ยนเป็น upload ตรงไป Storage | R7 |
+
+หน้า UI และ Server Actions (`memory-actions.ts`, `profile-actions.ts`, `page-guards.ts`) เรียกผ่าน function เหล่านี้อยู่แล้ว **ไม่ต้องแก้** เมื่อสลับเป็น Supabase ตราบใดที่ signature และ error code เหมือนเดิม
 
 > บรรทัดอ้างอิงตาม commit ที่เขียนเอกสารนี้ ถ้าโค้ดเลื่อน ให้ค้นด้วย `TODO(R4` หรือ `isMockAuthMode`
 

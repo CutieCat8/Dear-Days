@@ -1,12 +1,15 @@
 import Image from "next/image";
 import Link from "next/link";
-import { notFound } from "next/navigation";
 
 import { Breadcrumbs } from "@/components/shared/breadcrumbs";
 import { BookIcon, CalendarIcon, EditIcon, PinIcon, UsersIcon } from "@/components/shared/icons";
 import { MoodBadge } from "@/components/shared/mood-badge";
 import { RoomCover } from "@/components/shared/room-cover";
-import { mockMemories, mockRooms } from "@/lib/contracts/fixtures";
+import { DeleteMemoryButton } from "@/components/features/memory/delete-memory-button";
+import { getMemory } from "@/lib/data/memories";
+import { unwrapForPage } from "@/lib/data/page-guards";
+import { getCurrentProfile } from "@/lib/data/profile";
+import { getRoom } from "@/lib/data/rooms";
 
 type MemoryDetailPageProps = {
   params: Promise<{ roomId: string; memoryId: string }>;
@@ -16,13 +19,12 @@ function formatDate(date: string) {
   return new Intl.DateTimeFormat("en-US", { dateStyle: "long", timeZone: "UTC" }).format(new Date(`${date}T00:00:00Z`));
 }
 
-// TODO(T13/T14): replace fixtures with getMemory(roomId, memoryId).
 export default async function MemoryDetailPage({ params }: MemoryDetailPageProps) {
   const { roomId, memoryId } = await params;
-  const room = mockRooms.find((item) => item.id === roomId);
-  const memory = mockMemories.find((item) => item.id === memoryId && item.room_id === roomId);
-
-  if (!room || !memory) notFound();
+  const room = unwrapForPage(await getRoom(roomId));
+  const memory = unwrapForPage(await getMemory(roomId, memoryId));
+  const profile = unwrapForPage(await getCurrentProfile());
+  const isAuthor = memory.author_id === profile.id;
 
   const photos = [...memory.media].sort((a, b) => a.position - b.position);
   const cover = photos.find((item) => item.id === memory.cover_media_id) ?? photos[0];
@@ -60,9 +62,14 @@ export default async function MemoryDetailPage({ params }: MemoryDetailPageProps
         <div className="min-w-0">
           <div className="flex items-start justify-between gap-3">
             <h1 className="title-xl">{memory.title}</h1>
-            <Link className="btn btn-secondary btn-sm shrink-0" href={`/rooms/${room.id}/memories/${memory.id}/edit`}>
-              <EditIcon className="size-3.5" /> Edit
-            </Link>
+            {isAuthor ? (
+              <div className="flex shrink-0 gap-2">
+                <Link className="btn btn-secondary btn-sm" href={`/rooms/${room.id}/memories/${memory.id}/edit`}>
+                  <EditIcon className="size-3.5" /> Edit
+                </Link>
+                <DeleteMemoryButton memoryId={memory.id} roomId={room.id} title={memory.title} />
+              </div>
+            ) : null}
           </div>
           <p className="mt-2.5 flex flex-wrap items-center gap-2.5 text-xs text-[var(--color-muted)]">
             <span className="inline-flex items-center gap-1.5"><CalendarIcon className="size-3.5" /> <time dateTime={memory.memory_date}>{formatDate(memory.memory_date)}</time></span>
