@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore, type FormEvent, type KeyboardEvent } from "react";
 
 import { Breadcrumbs } from "@/components/shared/breadcrumbs";
 import { CalendarIcon, CameraIcon, CloseIcon, EditIcon, FrownIcon, GripIcon, InfoIcon, LeafIcon, LockIcon, MehIcon, PinIcon, SearchIcon, SmileIcon, SparkleIcon, StarIcon, TrashIcon, UsersIcon } from "@/components/shared/icons";
 import { MEDIA_CONSTRAINTS, MOOD_LABELS, MOODS } from "@/lib/contracts/constants";
 import type { Memory, MemoryInput, Mood, NewMediaUpload, Room, Tag } from "@/lib/contracts/types";
 import { createBrowserDataSource } from "@/lib/data/browser";
+import { localDateString } from "@/lib/local-date";
 
 type MemoryFormProps = {
   mode: "create" | "edit";
@@ -26,6 +27,8 @@ type Photo = { id: string; url: string; name: string; error?: string; file?: Fil
 const MOOD_ICONS: Record<Mood, typeof SmileIcon> = { awful: FrownIcon, stressed: MehIcon, sad: FrownIcon, relaxed: LeafIcon, happy: SmileIcon, excited: SparkleIcon };
 const MAX_BODY = 10_000;
 
+const subscribeNever = () => () => {};
+
 export function MemoryForm({ mode, room: initialRoom, rooms = [initialRoom], memory, tags: knownTags = [] }: MemoryFormProps) {
   const router = useRouter();
   const [formError, setFormError] = useState<string | null>(null);
@@ -35,7 +38,10 @@ export function MemoryForm({ mode, room: initialRoom, rooms = [initialRoom], mem
   const [roomId, setRoomId] = useState(initialRoom.id);
   const room = rooms.find((item) => item.id === roomId) ?? initialRoom;
   const [title, setTitle] = useState(memory?.title ?? "");
-  const [date, setDate] = useState(memory?.memory_date ?? new Date().toISOString().slice(0, 10));
+  // The server renders in its own time zone: the default day is read on the device (the person's local day), "" while hydrating.
+  const today = useSyncExternalStore(subscribeNever, () => localDateString(), () => "");
+  const [pickedDate, setDate] = useState<string | null>(memory?.memory_date ?? null);
+  const date = pickedDate ?? today;
   const [body, setBody] = useState(memory?.body ?? "");
   const [mood, setMood] = useState<Mood | null>(memory?.mood ?? null);
   const [people, setPeople] = useState(memory?.tags.filter((tag) => tag.type === "person").map((tag) => tag.label) ?? []);
