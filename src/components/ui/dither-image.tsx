@@ -339,7 +339,8 @@ const DitherImage = ({
       isCancelled = true;
       image.onload = null;
       image.onerror = null;
-      image.src = "";
+      // An empty image URL resolves to the current document and caused repeated GET / requests after resize cleanup.
+      // Detaching the handlers is enough to prevent stale image callbacks from updating this component.
       context.clearRect(0, 0, canvas.width, canvas.height);
       canvas.width = 0;
       canvas.height = 0;
