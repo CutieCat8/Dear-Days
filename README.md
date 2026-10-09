@@ -1,6 +1,6 @@
 # Dear Days
 
-Next.js App Router foundation สำหรับ MVP ไดอารี่ส่วนตัวของทีม BlackJackie รอบแรกนี้ครอบคลุม T1 (contract ฉบับเสนอ), T2 ส่วนที่ทำใน repo ได้ และ T4 ส่วน types/schemas/fixtures โดยยังไม่เชื่อม Supabase project จริง
+Next.js App Router สำหรับ MVP ไดอารี่ส่วนตัวของทีม BlackJackie ปัจจุบันมี UI ของ routes หลัก, shared contracts/fixtures และ Museum room แล้ว แต่ยังไม่เชื่อม Auth, database และ Storage ของ Supabase จริง
 
 ## เริ่มใช้งาน
 
@@ -23,11 +23,13 @@ npm run check:fixtures
 npm run build
 ```
 
-## จุดเริ่มงานของแต่ละคน
+## การแบ่งงานรอบปัจจุบัน
 
-- จิรวัฒน์: หน้า `src/app/rooms/[roomId]/memories/**`, ใช้ `memoryInputSchema`, `MemoryInput`, `mockMemories` และ `mockMemoryCreateInput` จาก `@/lib/contracts`
-- สิรวิชญ์: `src/app/page.tsx`, `src/app/rooms/new`, `src/app/rooms/join`, `src/app/rooms/[roomId]/gallery`; ใช้ `Room`, `roomInputSchema`, `MemoryListParams`, `mockRooms`, `mockMemories`
-- ซี: `src/lib/supabase`, `src/lib/data`, auth routes, และ `src/app/rooms/[roomId]/page.tsx`
+- จิรวัฒน์: Auth/Profile และ application/data integration ของ Memory, Media และ Tags
+- สิรวิชญ์: Room/Membership/Invite, Add friend/Join, Home/Gallery/Museum data integration และเตรียม release candidate
+- ซี: ดูแล Supabase project, schema/migrations, RLS, Storage policies, production deployment/release และตรวจ UI รอบสุดท้ายหลัง feature freeze
+
+รายละเอียดงานที่ยังเหลือ, dependencies และ acceptance criteria อยู่ที่ [docs/REVISED-TASK-BREAKDOWN.md](docs/REVISED-TASK-BREAKDOWN.md) เอกสารนี้เป็นแผนทำงานล่าสุดแทนการยึด owner จาก breakdown เดิม
 
 ทุกหน้าควรแยก presentation components ไปไว้ใต้ `src/components` และเรียก backend ผ่าน implementation ของ `DearDaysDataSource` ใต้ `src/lib/data` ห้าม query Supabase โดยตรงจาก presentational component
 
@@ -45,7 +47,7 @@ docs/CONTRACTS.md        contract ฉบับเสนอและ assumptions
 public/mock/             ภาพ fixture local
 ```
 
-Proposal และ task breakdown ที่ได้รับมาอยู่ที่ root เป็น `Dear-Days-Project-Proposal.md` และ `Dear-Days-Task-Breakdown.md` (ไม่ได้อยู่ใต้ `docs/` ตาม path ที่แจ้ง) และไม่มี `AGENTS.md` ใน workspace ตอนเริ่มงาน
+Proposal และ task breakdown เดิมอยู่ที่ root เป็น `Dear-Days-Project-Proposal.md` และ `Dear-Days-Task-Breakdown.md`; เก็บไว้เป็นประวัติและใช้อ้างอิง scope ส่วนการมอบหมายงานปัจจุบันให้ยึด revised breakdown
 
 ## กติกา contract
 
@@ -55,6 +57,6 @@ Proposal และ task breakdown ที่ได้รับมาอยู่�
 
 แนวทาง design tokens, shared UI components และ responsive rule อยู่ที่ [docs/UI-GUIDE.md](docs/UI-GUIDE.md)
 
-## ขอบเขตรอบนี้
+## สถานะ backend
 
-มีเพียง route skeleton สำหรับหน้าของเพื่อนเพื่อไม่ขวางการทำงานร่วมกัน ยังไม่มี Auth, database migration/RLS/Storage, CRUD จริง, Gallery UI เต็ม, diary form เต็ม หรือ deploy งานที่ต้องยืนยันจากเพื่อนและ Supabase จริงจึงยังไม่ถือว่าเสร็จ
+UI ปัจจุบันส่วนใหญ่ยังอ่าน mock fixtures และ form หลายจุดยังเป็น no-op ยังไม่มี migrations/RLS/Storage policies, Auth/session จริง, CRUD/data adapter, end-to-end test หรือ deployment จึงต้องทำ R0–R15 ก่อนส่งให้ซีตรวจ UI ใน R16 และให้ซี deploy/release ใน R17
