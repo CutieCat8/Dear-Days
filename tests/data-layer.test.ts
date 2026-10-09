@@ -5,6 +5,7 @@ import { memoryInputSchema, roomInputSchema } from "../src/lib/contracts/schemas
 import { memoryFromRow } from "../src/lib/data/mappers";
 import { planMemorySave, storagePath } from "../src/lib/data/memory-payload";
 import { mapDatabaseError } from "../src/lib/data/result";
+import { localDateString } from "../src/lib/local-date";
 
 const ROOM = "10000000-0000-4000-8000-000000000001";
 const USER = "20000000-0000-4000-8000-000000000001";
@@ -111,5 +112,16 @@ describe("memoryFromRow", () => {
     assert.equal(memory.media[1].signed_url, null);
     assert.equal(memory.tags[0].label, "Cafe");
     assert.equal(memory.cover_media_id, "80000000-0000-4000-8000-000000000002");
+  });
+});
+
+describe("localDateString", () => {
+  it("uses the local calendar day, not the UTC day (Asia/Bangkok just after midnight)", () => {
+    const justAfterMidnightInBangkok = new Date("2026-10-09T18:30:00Z"); // 01:30 on 10 Oct in Bangkok
+    assert.equal(justAfterMidnightInBangkok.toISOString().slice(0, 10), "2026-10-09"); // the old, wrong answer
+    assert.equal(localDateString(justAfterMidnightInBangkok, "Asia/Bangkok"), "2026-10-10");
+    assert.equal(localDateString(new Date("2026-10-10T16:59:00Z"), "Asia/Bangkok"), "2026-10-10");
+    assert.equal(localDateString(new Date("2026-10-10T17:00:00Z"), "Asia/Bangkok"), "2026-10-11");
+    assert.equal(localDateString(new Date("2026-12-31T20:00:00Z"), "Asia/Bangkok"), "2027-01-01");
   });
 });
