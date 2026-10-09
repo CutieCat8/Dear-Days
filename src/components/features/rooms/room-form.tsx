@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 
 import { Breadcrumbs } from "@/components/shared/breadcrumbs";
 import { PlusIcon, StarIcon } from "@/components/shared/icons";
@@ -55,6 +55,13 @@ export function RoomForm({ mode, room, cancelHref }: RoomFormProps) {
   // UI only: the data contract has no description field yet (add it to docs/CONTRACTS.md + schemas before saving it).
   const [description, setDescription] = useState("");
   const [theme, setTheme] = useState<Theme>(room?.theme ?? "sunrise");
+  const [inviteOpen, setInviteOpen] = useState(false);
+  const [inviteFeedback, setInviteFeedback] = useState("");
+  const shareButtonRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (shareButtonRef.current) shareButtonRef.current.hidden = typeof navigator.share !== "function";
+  }, []);
 
   // TODO(T7/T9): call createRoom/updateRoom from src/lib/data.
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -63,6 +70,40 @@ export function RoomForm({ mode, room, cancelHref }: RoomFormProps) {
 
   const memberCount = room?.member_count ?? 1;
   const hasSecondMember = isEdit && memberCount >= 2;
+
+  async function copyInvite(value: "code" | "link") {
+    if (!room) return;
+
+    const inviteLink = new URL("/rooms/join", window.location.origin);
+    inviteLink.searchParams.set("code", room.invite_code);
+    const text = value === "code" ? room.invite_code : inviteLink.toString();
+
+    try {
+      await navigator.clipboard.writeText(text);
+      setInviteFeedback(value === "code" ? "Invite code copied." : "Invite link copied.");
+    } catch {
+      setInviteFeedback("Copy is unavailable in this browser.");
+    }
+  }
+
+  async function shareInvite() {
+    if (!room || !navigator.share) return;
+
+    const inviteLink = new URL("/rooms/join", window.location.origin);
+    inviteLink.searchParams.set("code", room.invite_code);
+
+    try {
+      await navigator.share({
+        title: "Join my Dear Days room",
+        text: `Use invite code ${room.invite_code} to join my room.`,
+        url: inviteLink.toString(),
+      });
+      setInviteFeedback("Invite shared.");
+    } catch (error) {
+      if (error instanceof Error && error.name === "AbortError") return;
+      setInviteFeedback("Sharing is unavailable right now.");
+    }
+  }
 
   return (
     <div>
@@ -166,12 +207,34 @@ export function RoomForm({ mode, room, cancelHref }: RoomFormProps) {
                   </span>
                   <div>
                     {/* TODO(T7/T9): invite flow. For now the invite code is shown once the room exists. */}
-                    <button className="text-sm font-semibold text-[var(--color-green)] disabled:cursor-not-allowed disabled:opacity-60" disabled title="Available after the room is created" type="button">Add member</button>
+                    <button
+                      aria-expanded={inviteOpen}
+                      className="text-sm font-semibold text-[var(--color-green)] disabled:cursor-not-allowed disabled:opacity-60"
+                      disabled={!isEdit || !room || hasSecondMember}
+                      onClick={() => setInviteOpen((open) => !open)}
+                      title={hasSecondMember ? "This room is full" : undefined}
+                      type="button"
+                    >
+                      Add friend
+                    </button>
                     <p className="text-xs text-[var(--color-muted)]">{isEdit && room ? `Invite code ${room.invite_code}` : "Invite one person after creating the room"}</p>
                   </div>
                 </div>
               )}
             </div>
+            {inviteOpen && isEdit && room && !hasSecondMember ? (
+              <div className="mt-4 border-t border-[var(--color-border)] pt-4">
+                <p className="eyebrow">Room invite</p>
+                <p className="mt-1 font-mono text-lg font-semibold tracking-[0.12em] text-[var(--color-green-deep)]">{room.invite_code}</p>
+                <p className="mt-1 break-all text-xs text-[var(--color-muted)]">/rooms/join?code={room.invite_code}</p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button className="btn btn-secondary btn-sm" onClick={() => void copyInvite("code")} type="button">Copy code</button>
+                  <button className="btn btn-secondary btn-sm" onClick={() => void copyInvite("link")} type="button">Copy link</button>
+                  <button className="btn btn-secondary btn-sm" onClick={() => void shareInvite()} ref={shareButtonRef} type="button">Share</button>
+                </div>
+                <p aria-live="polite" className="mt-2 min-h-4 text-xs text-[var(--color-muted)]">{inviteFeedback}</p>
+              </div>
+            ) : null}
           </section>
         </div>
       </div>
