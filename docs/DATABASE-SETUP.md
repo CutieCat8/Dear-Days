@@ -68,9 +68,7 @@ Done on 2026-10-10 with the CLI (`supabase login`, `supabase link`), never `db r
 
 Not verified on hosted yet: Auth settings (Site URL / redirect URLs / email confirmation are set in the Dashboard, not by migrations), real e-mail sign-up and the browser flows. The built-in Supabase mail sender is heavily rate limited, so create test accounts sparingly or configure SMTP.
 
-## Pending on hosted (not applied)
-| Migration | Adds | Needed by |
-| --- | --- | --- |
-| `20261010000300_r1_contract_alignment` | `profiles.avatar_url`, `profiles.updated_at`, `rooms.description`, `room_summaries.description`, `create_room(..., p_description)`, `remove_room_member(uuid, uuid)` | profile read/update, room description, create room from the app, Remove member |
+## Hosted migration status
+All four migrations are applied on `bnukioggopvrnppxkkkk`: `...0000_schema`, `...0100_security`, `...0200_revoke_anon_helpers`, `...0300_r1_contract_alignment` (profiles `avatar_url`/`updated_at`, `rooms.description`, `create_room(..., p_description)`, `remove_room_member`). Details of the checks: `docs/SUPABASE-HANDOFF.md`.
 
 Local stack: `npx supabase migration up --local`, then `npm run gen:types`. Hosted: `npx supabase db push --dry-run`, then `npx supabase db push`.

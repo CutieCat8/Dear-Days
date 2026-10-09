@@ -8,7 +8,7 @@ Branch: `backend/supabase-integration`. Includes R1 (`origin/main` `b8b6bb1`): c
 | --- | --- |
 | Migrations, RLS, RPC, private bucket | Written. Tested on plain Postgres 15 (`npm run test:db`) and on a local Supabase stack (`npm run test:integration`, 19 checks). |
 | Local browser flows (real mode) | Checked in Chrome against the local stack: sign up/in/out, create room + theme, invite link, join, full room, text and photo memories, edit/reorder/cover/delete, reload, logout, outsider 404, signed URL refresh in the 3D scene. |
-| Hosted project `Dear-Days` (`bnukioggopvrnppxkkkk`) | Migrations `20261010000000`, `...0100`, `...0200` applied with `db push` (no reset). Verified read-only: RLS on all 7 tables, bucket `memory-media` private (10 MiB, jpeg/png/webp), 3 storage policies, anon has no table or RPC access, bucket public URL denied. Security advisor: only the RPCs meant for signed-in users remain. |
+| Hosted project `Dear-Days` (`bnukioggopvrnppxkkkk`) | Migrations `20261010000000`, `...0100`, `...0200`, `...0300` (R1 alignment) applied with `db push` (no reset). Verified read-only: RLS on all 7 tables, bucket `memory-media` private (10 MiB, jpeg/png/webp), 3 storage policies, anon has no table or RPC access, bucket public URL denied. Security advisor: only the RPCs meant for signed-in users remain. |
 | Hosted browser flows | NOT tested: sign up with real e-mail, login/logout, invite to join, rooms, memories with photos, 3D, outsider and non-author permissions. A sign-up attempt hit the Supabase built-in mail rate limit, so no hosted test accounts exist. |
 | Email confirmation | Dashboard setting is on (the app showed the "check your e-mail" notice and a real account was confirmed by its owner), but the full confirm-then-return flow was not run by us. Built-in mail is rate limited: configure custom SMTP before real use or before the 3-account test. |
 
@@ -49,15 +49,22 @@ Shared: `next.config.ts` (image host for signed URLs), `package.json` (scripts `
 
 Behaviour to know: memories written by a removed member stay in the room (the owner and the other members still see them); the removed person can no longer read or change anything (every policy needs membership) and can join again with the invite code while there is a free seat.
 
-### Hosted project: migration still pending
+### Hosted project: R1 migration applied (2026-10-10)
 
-`20261010000300_r1_contract_alignment.sql` has NOT been applied to `bnukioggopvrnppxkkkk` (hosted has `...0000`, `...0100`, `...0200`). Until `db push` runs, with this branch pointed at hosted:
+`20261010000300_r1_contract_alignment.sql` was applied to `bnukioggopvrnppxkkkk` with `npx supabase db push` (no reset). Before: `migration list` showed only `...0300` pending and `db push --dry-run` listed only that file; the migration contains no data-deleting statement (only `ADD COLUMN` with null/default, `CREATE OR REPLACE VIEW`, a function replacement, one new trigger and one new RPC).
 
-- Create room fails (the RPC has no `p_description` argument yet), and saving a room description fails;
-- `removeRoomMember` fails (function missing), so Remove member does nothing useful;
-- loading the signed-in profile (header name, account page, `getViewer`) fails, because the query selects `avatar_url` and `updated_at`, which do not exist yet; most signed-in pages call it, so the app is effectively unusable on hosted until the migration is applied.
+Checked on hosted after the push (read-only SQL and the public key):
 
-So: do not use this branch against hosted before `npx supabase db push --dry-run` (expect only `20261010000300_r1_contract_alignment.sql`) and `npx supabase db push`. Run `npm run test:db` and `npm run test:integration` against a local stack first.
+| Check | Result |
+| --- | --- |
+| Existing data | unchanged: 1 user, 1 profile (same content hash), 0 rooms, 0 memories, 0 storage objects |
+| Columns | `profiles(user_id, display_name, bio, created_at, avatar_url, updated_at)`, `rooms.description`, `room_summaries.description` |
+| Functions | one `create_room(p_name, p_life_period, p_theme, p_description)`; `remove_room_member(uuid, uuid)` is `SECURITY DEFINER` with `search_path=""` |
+| Privileges | `anon` can execute no function in `public`; `authenticated` can execute `create_room` and `remove_room_member`; `authenticated` has only SELECT on `room_members` (removal only through the RPC); room UPDATE columns `name, life_period, description, theme` (owner only by RLS); RLS enabled on every table |
+| Public key, no session | `rpc/remove_room_member`, `rpc/create_room` and `GET /profiles` all return 42501 |
+| Security advisor | only the RPCs and RLS helpers that signed-in users are meant to call, plus a new Auth warning: leaked-password protection is disabled (a Dashboard setting, not changed) |
+
+The owner / member / outsider permission rules for `remove_room_member` were tested on the local stack (`test:db`, `test:integration`); they were not exercised with real hosted accounts (no hosted test accounts were created, to avoid sending mail).
 
 ## Not done
 Hosted browser flows and e-mail round-trip (above), avatar upload (the column exists, no upload UI), rate limiting of invite-code guesses, mobile 3D loading (backlog in `docs/ROOM-3D-HANDOFF.md`), deployment.
