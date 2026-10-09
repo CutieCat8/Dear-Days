@@ -142,6 +142,10 @@ export function ChevronDownIcon(props: IconProps) {
   return <IconBase {...props}><path d="m6 9 6 6 6-6" {...stroke} /></IconBase>;
 }
 
+export function ChevronRightIcon(props: IconProps) {
+  return <IconBase {...props}><path d="m9 6 6 6-6 6" {...stroke} /></IconBase>;
+}
+
 export function ShieldIcon(props: IconProps) {
   return <IconBase {...props}><path d="M12 3.5 5 6v5.5c0 4.2 2.9 7.6 7 9 4.1-1.4 7-4.8 7-9V6l-7-2.5Z" {...stroke} /></IconBase>;
 }

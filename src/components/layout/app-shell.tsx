@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useMemo, useState, type ReactNode } from "react";
 
-import { DoorIcon, GridIcon, HomeIcon, LeafIcon, UserIcon, UsersIcon } from "@/components/shared/icons";
+import { ChevronRightIcon, DoorIcon, GridIcon, HomeIcon, LeafIcon, UserIcon, UsersIcon } from "@/components/shared/icons";
 
 import { SceneHostContext } from "./scene-host";
 
@@ -64,13 +64,14 @@ export function AppShell({ children, galleryHref, userName }: AppShellProps) {
             </Link>
           ))}
         </nav>
-        <div className="pointer-events-auto mt-auto flex items-center gap-2.5 border-t border-[var(--color-border-strong)]/50 px-2 pt-4">
+        <Link aria-current={pathname === "/profile" ? "page" : undefined} aria-label={`${userName}, open your profile`} className="group pointer-events-auto mt-auto -mx-1 flex items-center gap-2.5 rounded-xl border-t border-[var(--color-border-strong)]/50 px-3 py-3 transition-colors hover:bg-[var(--color-sage)]/45 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-green)]" href="/profile">
           <span aria-hidden="true" className="font-display flex size-9 items-center justify-center rounded-full bg-[var(--color-green)] text-[0.95rem] text-white">{userName.charAt(0)}</span>
           <div className="min-w-0 text-sm">
             <p className="truncate text-[0.85rem] font-semibold leading-tight text-[var(--color-ink)]">{userName}</p>
             <p className="truncate text-[0.68rem] text-[var(--color-muted)]">A collection of good days</p>
           </div>
-        </div>
+          <ChevronRightIcon className="ml-auto size-4 shrink-0 text-[var(--color-muted)] transition-transform group-hover:translate-x-0.5" />
+        </Link>
       </div>
       </aside>
 
