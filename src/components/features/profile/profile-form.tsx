@@ -7,16 +7,17 @@ import { dataMode } from "@/lib/data/config";
 import { updateMyAccount } from "@/lib/data/profile";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
-type ProfileFormProps = { displayName: string; bio: string | null; email: string | null };
+type ProfileFormProps = { displayName: string; bio: string | null; email: string | null; username: string | null };
 
 const BIO_MAX = 160;
 const ROW = "grid gap-1.5 sm:grid-cols-[8.5rem_1fr] sm:items-center sm:gap-4";
 
-export function ProfileForm({ displayName: initialName, bio: initialBio, email }: ProfileFormProps) {
+export function ProfileForm({ displayName: initialName, bio: initialBio, email, username: initialUsername }: ProfileFormProps) {
   const router = useRouter();
   const demo = dataMode() === "mock";
   const [displayName, setDisplayName] = useState(initialName);
   const [bio, setBio] = useState(initialBio ?? "");
+  const [username, setUsername] = useState(initialUsername ?? "");
   const [message, setMessage] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
   const [pending, setPending] = useState(false);
 
@@ -24,7 +25,9 @@ export function ProfileForm({ displayName: initialName, bio: initialBio, email }
     event.preventDefault();
     setMessage(null);
     setPending(true);
-    const result = await updateMyAccount(createSupabaseBrowserClient(), { display_name: displayName, bio });
+    // only send the username when it changed, so an untouched form never trips the uniqueness check
+    const changedUsername = initialUsername !== null && username.trim().replace(/^@+/, "").toLowerCase() !== initialUsername ? username : undefined;
+    const result = await updateMyAccount(createSupabaseBrowserClient(), { display_name: displayName, bio, username: changedUsername });
     setPending(false);
     if (!result.ok) {
       setMessage({ kind: "error", text: result.error.message });
@@ -44,6 +47,18 @@ export function ProfileForm({ displayName: initialName, bio: initialBio, email }
         <label className="field-label !mb-0" htmlFor="display-name">Display name</label>
         <input className="field-input" disabled={demo} id="display-name" maxLength={50} name="display_name" onChange={(event) => setDisplayName(event.target.value)} required value={displayName} />
       </div>
+      {initialUsername !== null ? (
+        <div className={ROW}>
+          <label className="field-label !mb-0" htmlFor="username">Username</label>
+          <div>
+            <div className="relative">
+              <span aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-muted)]">@</span>
+              <input aria-describedby="username-hint" autoCapitalize="none" autoComplete="username" className="field-input pl-8" disabled={demo} id="username" maxLength={31} name="username" onChange={(event) => setUsername(event.target.value)} spellCheck={false} value={username} />
+            </div>
+            <p className="mt-1 text-[0.7rem] text-[var(--color-muted)]" id="username-hint">Friends find you with this. 3–30 letters, numbers, dots or underscores.</p>
+          </div>
+        </div>
+      ) : null}
       {email ? (
         <div className={ROW}>
           <label className="field-label !mb-0" htmlFor="email">Email address</label>

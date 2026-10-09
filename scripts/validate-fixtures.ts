@@ -1,6 +1,6 @@
 import { MOODS } from "../src/lib/contracts/constants";
-import { mockMemories, mockMemberships, mockProfiles, mockRoomMembers, mockRooms, mockTags } from "../src/lib/contracts/fixtures";
-import { memorySchema, profileSchema, roomMembershipSchema, roomMemberViewSchema, roomSchema, tagSchema } from "../src/lib/contracts/schemas";
+import { mockFriends, mockMemories, mockMemberships, mockProfiles, mockRoomMembers, mockRooms, mockTags, mockUsernames } from "../src/lib/contracts/fixtures";
+import { friendsOverviewSchema, memorySchema, profileSchema, roomMembershipSchema, roomMemberViewSchema, roomSchema, tagSchema, usernameSchema } from "../src/lib/contracts/schemas";
 
 for (const room of mockRooms) roomSchema.parse(room);
 for (const profile of mockProfiles) profileSchema.parse(profile);
@@ -8,6 +8,8 @@ for (const membership of mockMemberships) roomMembershipSchema.parse(membership)
 for (const member of mockRoomMembers) roomMemberViewSchema.parse(member);
 for (const tag of mockTags) tagSchema.parse(tag);
 for (const memory of mockMemories) memorySchema.parse(memory);
+friendsOverviewSchema.parse(mockFriends);
+for (const username of Object.values(mockUsernames)) usernameSchema.parse(username);
 
 const moods = new Set(mockMemories.map((memory) => memory.mood));
 for (const mood of MOODS) {

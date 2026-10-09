@@ -1,22 +1,24 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
 
+import { usernameSchema } from "@/lib/contracts/schemas";
 import type { DataResult, Profile, RoomMemberView } from "@/lib/contracts/types";
 import type { Database } from "@/lib/supabase/database.types";
 
 import { fail, failFrom, ok } from "./result";
 
-/** Account page data: the contract `Profile` plus what only the signed-in person sees (e-mail, short bio). */
-export type Account = Profile & { email: string | null; bio: string | null };
+/** Account page data: the contract `Profile` plus what only the signed-in person sees (e-mail, short bio) and their handle. */
+export type Account = Profile & { email: string | null; bio: string | null; username: string | null };
 
 export const accountInputSchema = z.object({
   display_name: z.string().trim().min(1, "Please enter a display name").max(50),
   bio: z.string().trim().max(160).nullable().optional(),
+  username: usernameSchema.optional(),
 });
 
 export type AccountInput = z.infer<typeof accountInputSchema>;
 
-type ProfileRow = { user_id: string; display_name: string; avatar_url: string | null; bio?: string | null; created_at: string; updated_at: string };
+type ProfileRow = { user_id: string; display_name: string; avatar_url: string | null; bio?: string | null; username?: string; created_at: string; updated_at: string };
 
 export function profileFromRow(row: ProfileRow): Profile {
   return { id: row.user_id, display_name: row.display_name, avatar_url: row.avatar_url, created_at: row.created_at, updated_at: row.updated_at };
@@ -25,10 +27,10 @@ export function profileFromRow(row: ProfileRow): Profile {
 export async function getMyAccount(client: SupabaseClient<Database>): Promise<DataResult<Account>> {
   const { data: auth, error: authError } = await client.auth.getUser();
   if (authError || !auth.user) return fail("UNAUTHENTICATED", "Please sign in to continue.");
-  const { data, error } = await client.from("profiles").select("user_id, display_name, avatar_url, bio, created_at, updated_at").eq("user_id", auth.user.id).maybeSingle();
+  const { data, error } = await client.from("profiles").select("user_id, display_name, avatar_url, bio, username, created_at, updated_at").eq("user_id", auth.user.id).maybeSingle();
   if (error) return failFrom(error);
   if (!data) return fail("NOT_FOUND", "We could not find your profile.");
-  return ok({ ...profileFromRow(data), email: auth.user.email ?? null, bio: data.bio ?? null });
+  return ok({ ...profileFromRow(data), email: auth.user.email ?? null, bio: data.bio ?? null, username: data.username ?? null });
 }
 
 /** Contract `getCurrentProfile`: the signed-in user's profile without account-only fields. */
@@ -44,12 +46,19 @@ export async function updateMyAccount(client: SupabaseClient<Database>, input: A
   if (authError || !auth.user) return fail("UNAUTHENTICATED", "Please sign in to continue.");
   const parsed = accountInputSchema.safeParse(input);
   if (!parsed.success) {
-    return fail("VALIDATION_ERROR", parsed.error.issues[0]?.message ?? "Please check your details.", { field_errors: { display_name: [parsed.error.issues[0]?.message ?? "Invalid"] } });
+    const issue = parsed.error.issues[0];
+    const field = String(issue?.path[0] ?? "display_name");
+    return fail("VALIDATION_ERROR", issue?.message ?? "Please check your details.", { field_errors: { [field]: [issue?.message ?? "Invalid"] } });
   }
-  const update: { display_name: string; bio?: string | null } = { display_name: parsed.data.display_name };
+  const update: { display_name: string; bio?: string | null; username?: string } = { display_name: parsed.data.display_name };
   if (parsed.data.bio !== undefined) update.bio = parsed.data.bio?.length ? parsed.data.bio : null;
+  if (parsed.data.username !== undefined) update.username = parsed.data.username;
   const { error } = await client.from("profiles").update(update).eq("user_id", auth.user.id);
-  if (error) return failFrom(error);
+  if (error) {
+    // unique index on profiles.username
+    if (error.code === "23505") return fail("CONFLICT", "That username is taken.", { field_errors: { username: ["That username is taken."] } });
+    return failFrom(error);
+  }
   return getMyAccount(client);
 }
 

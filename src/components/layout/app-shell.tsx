@@ -24,7 +24,7 @@ export function AppShell({ children, galleryHref, userName }: AppShellProps) {
     { href: "/", label: "Home", icon: HomeIcon, active: pathname === "/" },
     { href: "/rooms", label: "My rooms", icon: DoorIcon, active: pathname.startsWith("/rooms") && !pathname.endsWith("/gallery") && pathname !== "/rooms/join" },
     { href: galleryHref, label: "Gallery", icon: GridIcon, active: pathname.endsWith("/gallery") },
-    { href: "/rooms/join", label: "Join room", icon: UsersIcon, active: pathname === "/rooms/join" },
+    { href: "/rooms/join", label: "Friends & Rooms", icon: UsersIcon, active: pathname === "/rooms/join" },
     { href: "/profile", label: "Profile", icon: UserIcon, active: pathname === "/profile" },
   ];
 

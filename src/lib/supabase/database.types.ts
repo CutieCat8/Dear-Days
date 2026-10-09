@@ -5,7 +5,33 @@ export type Database = {
   
   "public": {
           Tables: {
-            "memories": {
+            "friendships": {
+                  Row: {
+                    "addressee_id": string,"created_at": string,"id": string,"requester_id": string,"responded_at": string | null,"status": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "addressee_id": string,"created_at"?: string,"id"?: string,"requester_id": string,"responded_at"?: string | null,"status"?: string
+                  }
+                  Update: {
+                    "addressee_id"?: string,"created_at"?: string,"id"?: string,"requester_id"?: string,"responded_at"?: string | null,"status"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "friendships_addressee_id_fkey"
+      columns: ["addressee_id"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["user_id"]
+    },{
+      foreignKeyName: "friendships_requester_id_fkey"
+      columns: ["requester_id"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["user_id"]
+    }
+                  ]
+                },"memories": {
                   Row: {
                     "author_id": string,"body": string,"cover_media_id": string | null,"created_at": string,"id": string,"memory_date": string,"mood": string | null,"period_label": string | null,"room_id": string,"title": string,"updated_at": string
                   }
@@ -85,14 +111,14 @@ isOneToOne: false
                   ]
                 },"profiles": {
                   Row: {
-                    "avatar_url": string | null,"bio": string | null,"created_at": string,"display_name": string,"updated_at": string,"user_id": string
+                    "avatar_url": string | null,"bio": string | null,"created_at": string,"display_name": string,"updated_at": string,"user_id": string,"username": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "avatar_url"?: string | null,"bio"?: string | null,"created_at"?: string,"display_name": string,"updated_at"?: string,"user_id": string
+                    "avatar_url"?: string | null,"bio"?: string | null,"created_at"?: string,"display_name": string,"updated_at"?: string,"user_id": string,"username": string
                   }
                   Update: {
-                    "avatar_url"?: string | null,"bio"?: string | null,"created_at"?: string,"display_name"?: string,"updated_at"?: string,"user_id"?: string
+                    "avatar_url"?: string | null,"bio"?: string | null,"created_at"?: string,"display_name"?: string,"updated_at"?: string,"user_id"?: string,"username"?: string
                   }
                   Relationships: [
                     
@@ -201,6 +227,9 @@ isOneToOne: false
         isOneToOne: true
         isSetofReturn: false
       } },
+"has_friendship_with":
+{ Args: { "p_user_id": string }; Returns: boolean
+                           },
 "generate_invite_code":
 { Args: Record<PropertyKey, never>; Returns: string
                            },
@@ -221,17 +250,29 @@ isOneToOne: false
 "memory_room_id":
 { Args: { "p_memory_id": string }; Returns: string
                            },
+"remove_friendship":
+{ Args: { "p_friendship_id": string }; Returns: string
+                           },
 "remove_room_member":
 { Args: { "p_room_id": string,"p_user_id": string }; Returns: string
                            },
+"respond_friend_request":
+{ Args: { "p_accept": boolean,"p_friendship_id": string }; Returns: string
+                           },
 "save_memory":
 { Args: { "p_input": Json,"p_memory_id": string,"p_room_id": string }; Returns: Json
+                           },
+"send_friend_request":
+{ Args: { "p_username": string }; Returns: Json
                            },
 "shares_room_with":
 { Args: { "p_user_id": string }; Returns: boolean
                            },
 "try_uuid":
 { Args: { "p_text": string }; Returns: string
+                           },
+"unique_username":
+{ Args: { "p_base": string }; Returns: string
                            },
 "upsert_tags":
 { Args: { "p_room_id": string,"p_tags": Json }; Returns: {

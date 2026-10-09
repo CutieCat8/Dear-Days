@@ -153,3 +153,23 @@ export function ChartIcon(props: IconProps) {
 export function LogOutIcon(props: IconProps) {
   return <IconBase {...props}><path d="M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4M10 16l-4-4 4-4M6 12h10" {...stroke} /></IconBase>;
 }
+
+export function UserPlusIcon(props: IconProps) {
+  return <IconBase {...props}><circle cx="9.5" cy="8" r="3.5" {...stroke} /><path d="M3.5 19.5c.8-3.2 3.2-5 6-5s5.2 1.8 6 5M18.5 8v6M15.5 11h6" {...stroke} /></IconBase>;
+}
+
+export function SendIcon(props: IconProps) {
+  return <IconBase {...props}><path d="M20.5 3.5 10 14M20.5 3.5l-6.5 17-4-6.5-6.5-4 17-6.5Z" {...stroke} /></IconBase>;
+}
+
+export function LinkIcon(props: IconProps) {
+  return <IconBase {...props}><path d="M10 14a4 4 0 0 0 5.7 0l3.1-3.1a4 4 0 0 0-5.7-5.7L11.5 6.8M14 10a4 4 0 0 0-5.7 0l-3.1 3.1a4 4 0 0 0 5.7 5.7l1.6-1.6" {...stroke} /></IconBase>;
+}
+
+export function CopyIcon(props: IconProps) {
+  return <IconBase {...props}><rect height="12" rx="2" width="11" x="8.5" y="8" {...stroke} /><path d="M15.5 8V6a2 2 0 0 0-2-2h-7a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h2" {...stroke} /></IconBase>;
+}
+
+export function MoreIcon(props: IconProps) {
+  return <IconBase {...props}><circle cx="6" cy="12" fill="currentColor" r="1.4" /><circle cx="12" cy="12" fill="currentColor" r="1.4" /><circle cx="18" cy="12" fill="currentColor" r="1.4" /></IconBase>;
+}

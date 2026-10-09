@@ -1,5 +1,5 @@
 import { demoMuseumMemories, demoMuseumTags } from "./demo-museum";
-import type { Memory, MemoryInput, Profile, Room, RoomMemberView, RoomMembership, Tag } from "./types";
+import type { FriendsOverview, Memory, MemoryInput, Profile, Room, RoomMemberView, RoomMembership, Tag } from "./types";
 
 const ROOM_ID = "10000000-0000-4000-8000-000000000001";
 const OWNER_ID = "20000000-0000-4000-8000-000000000001";
@@ -12,6 +12,20 @@ export const mockProfiles = [
 ] satisfies Profile[];
 
 export const mockCurrentProfile: Profile = mockProfiles[0];
+
+/** Usernames for demo mode (the contract `Profile` has none; it lives on the account and on friend views). */
+export const mockUsernames: Record<string, string> = { [OWNER_ID]: "pim.days", [MEMBER_ID]: "mint.days" };
+
+export const mockFriends = {
+  friends: [
+    { friendship_id: "60000000-0000-4000-8000-000000000003", user_id: "20000000-0000-4000-8000-000000000003", display_name: "James", username: "james.diary", avatar_url: null, since: "2026-09-12T10:00:00.000Z" },
+    { friendship_id: "60000000-0000-4000-8000-000000000002", user_id: MEMBER_ID, display_name: "Mint", username: "mint.days", avatar_url: null, since: "2026-09-02T07:00:00.000Z" },
+  ],
+  incoming: [
+    { friendship_id: "60000000-0000-4000-8000-000000000004", user_id: "20000000-0000-4000-8000-000000000004", display_name: "Ploy", username: "ploy.memories", avatar_url: null, direction: "incoming", created_at: "2026-10-08T09:30:00.000Z" },
+  ],
+  outgoing: [],
+} satisfies FriendsOverview;
 
 export const mockRooms = [
   {

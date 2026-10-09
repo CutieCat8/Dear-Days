@@ -3,7 +3,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 import { dataMode } from "./config";
 import { MockDataSource } from "./mock-source";
-import { mockCurrentProfile, mockRoomMembers } from "@/lib/contracts/fixtures";
+import { mockCurrentProfile, mockRoomMembers, mockUsernames } from "@/lib/contracts/fixtures";
 import type { RoomMemberView } from "@/lib/contracts/types";
 
 import { getMyAccount, listRoomMembers, type Account } from "./profile";
@@ -17,7 +17,7 @@ export async function getDataSource(): Promise<DearDaysDataSource> {
 
 /** The signed-in person. In demo mode there is no sign-in and the fixture profile is returned. */
 export async function getViewer(): Promise<Account | null> {
-  if (dataMode() === "mock") return { ...mockCurrentProfile, email: null, bio: null };
+  if (dataMode() === "mock") return { ...mockCurrentProfile, email: null, bio: null, username: mockUsernames[mockCurrentProfile.id] ?? null };
   const result = await getMyAccount(await createSupabaseServerClient());
   return result.ok ? result.data : null;
 }
