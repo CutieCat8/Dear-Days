@@ -1,7 +1,7 @@
-# Dear Days — Shared Contract (ข้อเสนอ v0.1)
+# Dear Days — Shared Contract (ข้อเสนอ v0.2)
 
-สถานะ: **เสนอให้ทีมตรวจและยืนยันร่วมกัน** ก่อนถือว่า T1 เสร็จสมบูรณ์  
-เจ้าของการประสาน contract: ซี  
+สถานะ: **v0.2 (R1) รอ review จากสิรวิชญ์ และรอซีอนุมัติ database fields** — เพิ่ม Profile, RoomMemberView, Room `description` และพฤติกรรม invite/join/remove member  
+เจ้าของการประสาน contract: จิรวัฒน์ (application contracts) · ซี (database fields)  
 แหล่งอ้างอิงที่ตรวจด้วยเครื่อง: `src/lib/contracts/schemas.ts` โดย TypeScript types derive จาก Zod schemas ใน `types.ts`
 
 เอกสารนี้กำหนด boundary ที่ UI และ backend ใช้ร่วมกัน ไม่ใช่ schema ฐานข้อมูลฉบับสุดท้าย หากแก้ field, nullability, enum หรือ error ต้องแก้ Zod schema/fixture/เอกสารพร้อมกันและแจ้งเจ้าของหน้าที่ได้รับผลกระทบ
@@ -10,22 +10,45 @@
 
 | Route | งาน | เจ้าของ UI | Backend/integration |
 | --- | --- | --- | --- |
-| `/` | รายการห้องและ navigation | สิรวิชญ์ (T6) | ซีช่วย T19 |
-| `/sign-up`, `/sign-in` | Auth และ profile | ซี (T5) | ซี |
-| `/rooms/new` | สร้างห้อง | สิรวิชญ์ (T7) | ซี T9/T19 |
-| `/rooms/[roomId]/edit` | แก้ห้อง | สิรวิชญ์ (T7) | ซี T9/T19 |
-| `/rooms/join` | เข้าร่วมด้วย invite code | สิรวิชญ์ (T8) | ซี T9/T19 |
-| `/rooms/[roomId]` | ห้องพิพิธภัณฑ์ 3D (Three.js/R3F) | ซี (T17) | ซี |
-| `/rooms/[roomId]/memories/new` | สร้างไดอารี่ | จิรวัฒน์ (T11–T12) | ซี T14–T16, ช่วย T18 |
-| `/rooms/[roomId]/memories/[memoryId]` | อ่านไดอารี่ | จิรวัฒน์ (T13) | ซี T14–T16, ช่วย T18 |
-| `/rooms/[roomId]/memories/[memoryId]/edit` | แก้ไดอารี่ | จิรวัฒน์ (T11–T13) | ซี T14–T16, ช่วย T18 |
-| `/rooms/[roomId]/gallery` | ค้นหา/กรอง | สิรวิชญ์ (T10) | ซี T14/T16, ช่วย T20 |
+ตามการแบ่งงานใน `docs/REVISED-TASK-BREAKDOWN.md`: ซีเป็นเจ้าของ schema, migrations, RLS และ Storage ของทุก route
+
+| Route | งาน | เจ้าของ application/UI | Data layer |
+| --- | --- | --- | --- |
+| `/` | รายการห้องและ navigation | สิรวิชญ์ | สิรวิชญ์ (R11–R12) |
+| `/sign-up`, `/sign-in` | Auth | จิรวัฒน์ | จิรวัฒน์ (R4) |
+| `/profile` | Profile | จิรวัฒน์ | จิรวัฒน์ (R5) |
+| `/rooms/new` | สร้างห้อง | สิรวิชญ์ | สิรวิชญ์ (R9, R11) |
+| `/rooms/[roomId]/edit` | แก้ห้อง, สมาชิก, Add friend | สิรวิชญ์ | สิรวิชญ์ (R9–R11) |
+| `/rooms/join` | เข้าร่วมด้วย invite code/link | สิรวิชญ์ | สิรวิชญ์ (R9–R10) |
+| `/rooms/[roomId]` | ห้องพิพิธภัณฑ์ 3D (Three.js/R3F) | สิรวิชญ์ | สิรวิชญ์ (R12) |
+| `/rooms/[roomId]/memories/new` | สร้างไดอารี่ | จิรวัฒน์ | จิรวัฒน์ (R6–R8) |
+| `/rooms/[roomId]/memories/[memoryId]` | อ่านไดอารี่ | จิรวัฒน์ | จิรวัฒน์ (R6–R8) |
+| `/rooms/[roomId]/memories/[memoryId]/edit` | แก้ไดอารี่ | จิรวัฒน์ | จิรวัฒน์ (R6–R8) |
+| `/rooms/[roomId]/gallery` | ค้นหา/กรอง | สิรวิชญ์ | สิรวิชญ์ (R12) |
 
 ไฟล์ route ที่มีในรอบนี้เป็น skeleton เท่านั้น เจ้าของแต่ละส่วนสามารถแทนเนื้อหาภายในหน้าได้ แต่ให้คง route และเรียกข้อมูลผ่าน `src/lib/data` แทนการ query Supabase ใน component โดยตรง
 
 ## Entity contracts
 
 ชื่อ field ที่ข้าม data boundary ใช้ `snake_case` ให้ตรงกับ Supabase และลด mapping ระหว่างทีม
+
+### Profile
+
+```ts
+type Profile = {
+  id: string;                 // UUID เดียวกับ auth user id
+  display_name: string;       // 1..50
+  avatar_url: string | null;  // MVP ยังไม่มี upload avatar; UI ใช้ตัวอักษรแรกแทนเมื่อเป็น null
+  created_at: string;
+  updated_at: string;
+};
+
+type ProfileInput = {
+  display_name: string;       // แก้ได้เฉพาะ profile ของตัวเอง
+};
+```
+
+ทุก user ต้องมี profile หนึ่งแถว (สร้างตอนสมัคร — ซีกำหนดกลไกใน R2) Profile ไม่มี email; email อยู่ใน Supabase Auth เท่านั้นและไม่ส่งให้สมาชิกคนอื่น
 
 ### Room
 
@@ -35,8 +58,9 @@ type Room = {
   owner_id: string;           // UUID
   name: string;               // 1..80
   life_period: string;        // 1..80
+  description: string | null; // 0..300, ไม่บังคับ
   theme: "sunrise" | "rose" | "night";
-  invite_code: string;        // 8 ตัวอักษร
+  invite_code: string;        // 8 ตัว A-Z/0-9 uppercase
   member_count: number;       // 1..2 ใน MVP
   created_at: string;         // ISO datetime
   updated_at: string;         // ISO datetime
@@ -55,6 +79,55 @@ type RoomMembership = {
 ```
 
 ห้องมี owner หนึ่งคนและสมาชิกทั้งหมดไม่เกิน 2 คน เจ้าของต้องมี membership role `owner` ด้วย
+
+`RoomInput` คือ `{ name, life_period, description, theme }` โดย `description` ส่ง `null` เมื่อเว้นว่าง
+
+### RoomMemberView
+
+ข้อมูลสมาชิกที่ UI ใช้แสดงในห้อง/Members panel — รวม membership กับข้อมูล profile สาธารณะเท่านั้น
+
+```ts
+type RoomMemberView = {
+  room_id: string;
+  user_id: string;
+  display_name: string;
+  avatar_url: string | null;
+  role: "owner" | "member";
+  joined_at: string;
+};
+```
+
+ห้ามเพิ่ม email หรือข้อมูลบัญชีอื่นใน view นี้
+
+### Add friend: invite และ join
+
+"Add friend" ใน MVP คือการเชิญสมาชิกอีก 1 คนเข้าห้อง ไม่มีระบบเพื่อนส่วนกลางและไม่ส่งอีเมล
+
+- invite link รูปแบบ `/rooms/join?code=XXXXXXXX`; หน้า Join เติม code จาก query ให้อัตโนมัติ
+- client และ server normalize code ด้วย `inviteCodeSchema` (trim + uppercase, 8 ตัว A-Z/0-9)
+- backend สร้าง code แบบสุ่ม เดายาก และ unique; ถ้ามี regenerate/revoke ต้อง owner-only และ code เก่าใช้ไม่ได้ทันที
+
+| กรณี | ผลลัพธ์ |
+| --- | --- |
+| ไม่มี session | `UNAUTHENTICATED` |
+| รูปแบบ code ผิด | `VALIDATION_ERROR` |
+| code ไม่พบหรือถูก revoke | `INVALID_INVITE_CODE` |
+| ผู้ใช้เป็นสมาชิกห้องนี้อยู่แล้ว | `ok: true` คืน Room เดิม ไม่สร้าง membership ซ้ำ |
+| ห้องมีสมาชิกครบ 2 คน | `ROOM_FULL` |
+| สำเร็จ | `ok: true` คืน Room ที่ `member_count` อัปเดตแล้ว; UI พาไป `/rooms/[roomId]` |
+
+การตรวจจำนวนสมาชิกและการสร้าง membership ต้องเป็น operation เดียวแบบ atomic (ซีเตรียม RPC/constraint ใน R2) เพื่อกันการ join พร้อมกันเกิน 2 คน
+
+การนำสมาชิกออก (`removeRoomMember`):
+
+| กรณี | ผลลัพธ์ |
+| --- | --- |
+| ผู้เรียกไม่ใช่ owner ของห้อง | `FORBIDDEN` |
+| เป้าหมายคือ owner (รวม owner ลบตัวเอง) | `FORBIDDEN` — owner ออกจากห้องไม่ได้ ต้องลบห้องแทน |
+| เป้าหมายไม่ใช่สมาชิกห้องนี้ | `NOT_FOUND` |
+| สำเร็จ | `ok: true` คืน `{ user_id }` |
+
+MVP ไม่มีปุ่มให้ member ออกจากห้องเอง
 
 ### Memory
 
@@ -125,12 +198,17 @@ Tag ทุกตัวอยู่ภายใน room; person เป็นข�
 Interface หลักอยู่ที่ `src/lib/contracts/data-functions.ts` ชื่อและ signature ที่ UI ใช้คือ:
 
 ```ts
+getCurrentProfile(): Promise<DataResult<Profile>>
+updateProfile(input): Promise<DataResult<Profile>>
+
 listRooms(): Promise<DataResult<Room[]>>
 getRoom(roomId): Promise<DataResult<Room>>
 createRoom(input): Promise<DataResult<Room>>
 updateRoom(roomId, input): Promise<DataResult<Room>>
 deleteRoom(roomId): Promise<DataResult<{ id: string }>>
 joinRoom(inviteCode): Promise<DataResult<Room>>
+listRoomMembers(roomId): Promise<DataResult<RoomMemberView[]>>        // owner ก่อน; non-member → FORBIDDEN
+removeRoomMember(roomId, userId): Promise<DataResult<{ user_id: string }>>
 
 listMemories(params): Promise<DataResult<Paginated<Memory>>>
 getMemory(roomId, memoryId): Promise<DataResult<Memory>>
@@ -236,12 +314,14 @@ const parsed = memoryInputSchema.safeParse(formValues);
 
 1. ใช้ `snake_case` ตลอด data boundary แม้ prop ภายใน component จะใช้ camelCase ได้
 2. MVP มี theme คงที่ 3 ค่า: `sunrise`, `rose`, `night`
-3. invite code ยาว 8 ตัว; UI แสดงเป็น uppercase แต่ backend เป็นผู้สร้างและตรวจ uniqueness
+3. invite code ยาว 8 ตัว A-Z/0-9; ทั้ง client และ server normalize เป็น uppercase แต่ backend เป็นผู้สร้างและตรวจ uniqueness
 4. title และ body บังคับมีข้อความ แต่ mood, รูป, period label และ tags ไม่บังคับ
 5. จำกัด 8 รูป/บันทึก, 10 MiB/รูป และ JPEG/PNG/WebP เพื่อให้ทำ MVP ภายใน 4 วัน
 6. `signed_url` เป็น field สำหรับอ่านเท่านั้นและอาจเป็น `null` เมื่อสร้าง URL ไม่สำเร็จ; ไม่เก็บลงฐานข้อมูล
 7. pagination ใช้ page/offset ใน MVP เพื่อให้ UI ทำง่าย; เปลี่ยนเป็น cursor ภายหลังได้โดยถือเป็น contract change
 8. filter tag หลายค่าใช้ OR ภายในประเภทเดียวกัน
 9. `author_id` มาจาก session ฝั่ง server ไม่อยู่ใน `MemoryInput`
-10. เอกสารนี้ยังไม่ได้รับการยืนยันจากจิรวัฒน์/สิรวิชญ์ และยังไม่ได้ตรวจ response จริงกับ Supabase
+10. Join ซ้ำโดยสมาชิกเดิมถือว่าสำเร็จ (idempotent) ไม่ใช่ error
+11. Room `description` และ Profile `avatar_url` เป็น nullable; ต้องได้รับอนุมัติจากซีก่อนสร้างคอลัมน์ใน R2
+12. v0.2 ยังไม่ได้รับการ review จากสิรวิชญ์/ซี และยังไม่ได้ตรวจ response จริงกับ Supabase
 
