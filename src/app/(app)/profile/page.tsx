@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 
 import { ProfileForm, SignOutButton } from "@/components/features/profile/profile-form";
 import { LockIcon, UsersIcon } from "@/components/shared/icons";
-import { getMyProfile } from "@/lib/data/profile";
+import { getMyAccount } from "@/lib/data/profile";
 import { dataMode } from "@/lib/data/config";
 import { getViewer } from "@/lib/data/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -11,7 +11,7 @@ import { unwrap } from "@/lib/data/unwrap";
 
 export default async function ProfilePage() {
   const viewer = await getViewer();
-  const profile = dataMode() === "mock" ? viewer : unwrap(await getMyProfile(await createSupabaseServerClient()));
+  const profile = dataMode() === "mock" ? viewer : unwrap(await getMyAccount(await createSupabaseServerClient()));
   if (!profile) redirect("/sign-in");
   const name = profile.display_name;
 

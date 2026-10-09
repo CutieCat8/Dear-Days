@@ -50,7 +50,7 @@ export default async function MyRoomsPage() {
                 <h2 className="title-lg">{room.name}</h2>
                 <p className="mt-0.5 text-sm text-[var(--color-muted)]">{count} {count === 1 ? "memory" : "memories"}</p>
                 <p className="mt-2 text-[0.82rem] leading-6 text-[var(--color-muted)]">
-                  {room.life_period} · {THEME_LABELS[room.theme]} theme. A private room for the days worth keeping.
+                  {room.life_period} · {THEME_LABELS[room.theme]} theme. {room.description ?? "A private room for the days worth keeping."}
                 </p>
 
                 <div className="mt-auto border-t border-[var(--color-border)] pt-3">

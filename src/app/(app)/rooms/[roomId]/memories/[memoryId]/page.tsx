@@ -25,7 +25,7 @@ export default async function MemoryDetailPage({ params }: MemoryDetailPageProps
     source.getMemory(roomId, memoryId).then(unwrap),
     getViewer(),
   ]);
-  const isAuthor = viewer?.user_id === memory.author_id;
+  const isAuthor = viewer?.id === memory.author_id;
 
   const photos = [...memory.media].sort((a, b) => a.position - b.position);
   const cover = photos.find((item) => item.id === memory.cover_media_id) ?? photos[0];

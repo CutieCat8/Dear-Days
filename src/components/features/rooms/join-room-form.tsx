@@ -7,9 +7,10 @@ import { useState, type FormEvent } from "react";
 import { Breadcrumbs } from "@/components/shared/breadcrumbs";
 import { ArrowLeftIcon, UsersIcon } from "@/components/shared/icons";
 import { RoomCover } from "@/components/shared/room-cover";
+import { INVITE_CODE_LENGTH } from "@/lib/contracts/constants";
 import { createBrowserDataSource } from "@/lib/data/browser";
 
-const CODE_LENGTH = 8;
+const CODE_LENGTH = INVITE_CODE_LENGTH;
 
 export function JoinRoomForm({ initialCode = "" }: { initialCode?: string }) {
   const [code, setCode] = useState(initialCode);

@@ -18,7 +18,7 @@ export default async function EditMemoryPage({ params }: EditMemoryPageProps) {
     source.listTags(roomId).then(unwrap),
   ]);
   // only the author edits a memory (the database enforces this as well)
-  if (!viewer || memory.author_id !== viewer.user_id) notFound();
+  if (!viewer || memory.author_id !== viewer.id) notFound();
 
   return <MemoryForm memory={memory} mode="edit" room={room} tags={tags} />;
 }

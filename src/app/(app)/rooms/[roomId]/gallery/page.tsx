@@ -149,7 +149,7 @@ export default async function GalleryPage({ params, searchParams }: GalleryPageP
                 <div className="flex min-w-0 flex-col">
                   <div className="flex items-start justify-between gap-3">
                     <h2 className="title-xl !text-[1.7rem]">{selected.title}</h2>
-                    {viewer?.user_id === selected.author_id ? <Link className="btn btn-secondary btn-sm shrink-0" href={`/rooms/${room.id}/memories/${selected.id}/edit`}><EditIcon className="size-3.5" /> Edit memory</Link> : null}
+                    {viewer?.id === selected.author_id ? <Link className="btn btn-secondary btn-sm shrink-0" href={`/rooms/${room.id}/memories/${selected.id}/edit`}><EditIcon className="size-3.5" /> Edit memory</Link> : null}
                   </div>
                   <p className="mt-2 flex flex-wrap items-center gap-2 text-xs text-[var(--color-muted)]">
                     <CalendarIcon className="size-3.5" /> {longDate(selected.memory_date)} <span aria-hidden="true">·</span> by {authorName(selected.author_id)}

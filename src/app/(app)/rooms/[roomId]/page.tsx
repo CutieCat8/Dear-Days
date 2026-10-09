@@ -25,5 +25,5 @@ export default async function RoomPage({ params }: RoomPageProps) {
   }
 
   const viewer = await getViewer();
-  return <MuseumRoom canEditRoom={viewer?.user_id === room.owner_id} memories={memories} room={room} total={total} />;
+  return <MuseumRoom canEditRoom={viewer?.id === room.owner_id} memories={memories} room={room} total={total} />;
 }

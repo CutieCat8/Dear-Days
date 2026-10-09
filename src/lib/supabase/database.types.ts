@@ -85,14 +85,14 @@ isOneToOne: false
                   ]
                 },"profiles": {
                   Row: {
-                    "bio": string | null,"created_at": string,"display_name": string,"user_id": string
+                    "avatar_url": string | null,"bio": string | null,"created_at": string,"display_name": string,"updated_at": string,"user_id": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "bio"?: string | null,"created_at"?: string,"display_name": string,"user_id": string
+                    "avatar_url"?: string | null,"bio"?: string | null,"created_at"?: string,"display_name": string,"updated_at"?: string,"user_id": string
                   }
                   Update: {
-                    "bio"?: string | null,"created_at"?: string,"display_name"?: string,"user_id"?: string
+                    "avatar_url"?: string | null,"bio"?: string | null,"created_at"?: string,"display_name"?: string,"updated_at"?: string,"user_id"?: string
                   }
                   Relationships: [
                     
@@ -125,14 +125,14 @@ isOneToOne: false
                   ]
                 },"rooms": {
                   Row: {
-                    "created_at": string,"id": string,"invite_code": string,"life_period": string,"name": string,"owner_id": string,"theme": string,"updated_at": string
+                    "created_at": string,"description": string | null,"id": string,"invite_code": string,"life_period": string,"name": string,"owner_id": string,"theme": string,"updated_at": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "created_at"?: string,"id"?: string,"invite_code"?: string,"life_period": string,"name": string,"owner_id": string,"theme"?: string,"updated_at"?: string
+                    "created_at"?: string,"description"?: string | null,"id"?: string,"invite_code"?: string,"life_period": string,"name": string,"owner_id": string,"theme"?: string,"updated_at"?: string
                   }
                   Update: {
-                    "created_at"?: string,"id"?: string,"invite_code"?: string,"life_period"?: string,"name"?: string,"owner_id"?: string,"theme"?: string,"updated_at"?: string
+                    "created_at"?: string,"description"?: string | null,"id"?: string,"invite_code"?: string,"life_period"?: string,"name"?: string,"owner_id"?: string,"theme"?: string,"updated_at"?: string
                   }
                   Relationships: [
                     
@@ -168,14 +168,14 @@ isOneToOne: false
           Views: {
             "room_summaries": {
                   Row: {
-                    "created_at": string | null,"id": string | null,"invite_code": string | null,"life_period": string | null,"member_count": number | null,"name": string | null,"owner_id": string | null,"theme": string | null,"updated_at": string | null
+                    "created_at": string | null,"description": string | null,"id": string | null,"invite_code": string | null,"life_period": string | null,"member_count": number | null,"name": string | null,"owner_id": string | null,"theme": string | null,"updated_at": string | null
                   }
                   ComputedFields: never
                   Insert: {
-                           "created_at"?: string | null,"id"?: string | null,"invite_code"?: string | null,"life_period"?: string | null,"member_count"?: never,"name"?: string | null,"owner_id"?: string | null,"theme"?: string | null,"updated_at"?: string | null
+                           "created_at"?: string | null,"description"?: string | null,"id"?: string | null,"invite_code"?: string | null,"life_period"?: string | null,"member_count"?: never,"name"?: string | null,"owner_id"?: string | null,"theme"?: string | null,"updated_at"?: string | null
                          }
                         Update: {
-                           "created_at"?: string | null,"id"?: string | null,"invite_code"?: string | null,"life_period"?: string | null,"member_count"?: never,"name"?: string | null,"owner_id"?: string | null,"theme"?: string | null,"updated_at"?: string | null
+                           "created_at"?: string | null,"description"?: string | null,"id"?: string | null,"invite_code"?: string | null,"life_period"?: string | null,"member_count"?: never,"name"?: string | null,"owner_id"?: string | null,"theme"?: string | null,"updated_at"?: string | null
                          }
                         Relationships: [
                     
@@ -184,8 +184,9 @@ isOneToOne: false
           }
           Functions: {
             "create_room":
-{ Args: { "p_life_period": string,"p_name": string,"p_theme"?: string }; Returns: {
+{ Args: { "p_description"?: string,"p_life_period": string,"p_name": string,"p_theme"?: string }; Returns: {
               "created_at": string,
+"description": string | null,
 "id": string,
 "invite_code": string,
 "life_period": string,
@@ -219,6 +220,9 @@ isOneToOne: false
                            },
 "memory_room_id":
 { Args: { "p_memory_id": string }; Returns: string
+                           },
+"remove_room_member":
+{ Args: { "p_room_id": string,"p_user_id": string }; Returns: string
                            },
 "save_memory":
 { Args: { "p_input": Json,"p_memory_id": string,"p_room_id": string }; Returns: Json

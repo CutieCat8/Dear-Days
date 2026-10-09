@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 
 import { dataMode } from "@/lib/data/config";
-import { updateMyProfile } from "@/lib/data/profile";
+import { updateMyAccount } from "@/lib/data/profile";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 type ProfileFormProps = { displayName: string; bio: string | null; email: string | null };
@@ -21,7 +21,7 @@ export function ProfileForm({ displayName: initialName, bio: initialBio, email }
     event.preventDefault();
     setMessage(null);
     setPending(true);
-    const result = await updateMyProfile(createSupabaseBrowserClient(), { display_name: displayName, bio });
+    const result = await updateMyAccount(createSupabaseBrowserClient(), { display_name: displayName, bio });
     setPending(false);
     if (!result.ok) {
       setMessage({ kind: "error", text: result.error.message });
