@@ -160,11 +160,11 @@ export function MuseumScene({ memories }: MuseumSceneProps) {
               <>
                 <button className={styles.pill} disabled={camera.tilt >= 8} onClick={() => cameraRef.current?.tilt(1)} type="button">Tilt up</button>
                 <button className={styles.pill} disabled={camera.tilt <= 0} onClick={() => cameraRef.current?.tilt(-1)} type="button">Reset tilt</button>
-                <button className={styles.pill} onClick={() => cameraRef.current?.reset()} type="button">Reset view</button>
               </>
             )}
+            <button className={styles.pill} onClick={() => cameraRef.current?.reset()} type="button">Reset view</button>
           </div>
-          <p className={styles.hint}>{mode === "overview" ? "Drag to rotate · Shift+drag or right-drag to move · Scroll to zoom" : "Shift+drag or right-drag to move · Scroll to zoom"}</p>
+          <p className={styles.hint}>{mode === "overview" ? "Drag to rotate · Shift+drag or right-drag to move · Scroll to zoom" : "Drag to slide the wall · Scroll to zoom"}</p>
         </div>
       )}
 

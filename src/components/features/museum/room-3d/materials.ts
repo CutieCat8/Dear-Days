@@ -25,6 +25,7 @@ export function createMaterials() {
     floorEdge: wood(PALETTE.oakDark, 3, 0.7),
     wall: new MeshStandardMaterial({ color: PALETTE.wall, normalMap: plaster, normalScale: new Vector2(0.5, 0.5), roughness: 0.94 }),
     wallCap: new MeshStandardMaterial({ color: "#f8f1df", roughness: 0.85 }),
+    cornerLine: new MeshStandardMaterial({ color: "#d2c6aa", roughness: 0.95 }),
     baseboard: new MeshStandardMaterial({ color: PALETTE.baseboard, roughness: 0.5 }),
 
     oakLight: wood(PALETTE.oakLight, 21),
