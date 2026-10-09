@@ -64,7 +64,21 @@ Checked on hosted after the push (read-only SQL and the public key):
 | Public key, no session | `rpc/remove_room_member`, `rpc/create_room` and `GET /profiles` all return 42501 |
 | Security advisor | only the RPCs and RLS helpers that signed-in users are meant to call, plus a new Auth warning: leaked-password protection is disabled (a Dashboard setting, not changed) |
 
-The owner / member / outsider permission rules for `remove_room_member` were tested on the local stack (`test:db`, `test:integration`); they were not exercised with real hosted accounts (no hosted test accounts were created, to avoid sending mail).
+Browser check on hosted with the owner's existing account (Sea), 2026-10-10, `npm run dev` pointing at hosted; no account was created and no e-mail was sent:
+
+| Step | Result |
+| --- | --- |
+| Profile page reads the existing profile | pass (display name "Sea") |
+| My rooms lists the existing rooms | pass (none existed; empty state shown, matches the database) |
+| Create room "R1 hosted check" (rose) with a description | pass: row has the description and theme; room page shows the description, "ROSE THEME · 1 OF 2 MEMBERS" and the Edit button |
+| Edit room shows the description and the invite panel, no Remove button with a single member | pass |
+| Clear the description and save | pass: stored as `null`, `updated_at` moved (the first click of Save was not delivered by the browser driver; the second saved) |
+| `remove_room_member` rules with Sea's identity (SQL, one transaction, always rolled back) | pass: owner removing themselves `FORBIDDEN`; unknown target `NOT_FOUND`; unknown room `FORBIDDEN`; `DELETE` on `room_members` `permission denied`; member count unchanged |
+| Delete the test room from the UI | pass; afterwards the database is back to 1 user, 1 profile (same content hash), 0 rooms, 0 members, 0 storage objects |
+
+Still not exercised on hosted: owner removing a real second member and the member losing access (needs a second account, so mail), memories with photos and the 3D scene on hosted, invite to join, outsider 404 on hosted, and the e-mail confirmation round trip. Those rules are covered by the local `test:db` / `test:integration` runs.
+
+The owner / member / outsider permission rules for `remove_room_member` were tested on the local stack (`test:db`, `test:integration`); they were not exercised with two real hosted accounts (no hosted test accounts were created, to avoid sending mail); the single-account rules above were checked on hosted.
 
 ## Not done
 Hosted browser flows and e-mail round-trip (above), avatar upload (the column exists, no upload UI), rate limiting of invite-code guesses, mobile 3D loading (backlog in `docs/ROOM-3D-HANDOFF.md`), deployment.
