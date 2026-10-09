@@ -1,12 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 
 import { Breadcrumbs } from "@/components/shared/breadcrumbs";
-import { CameraIcon, LockIcon, TrashIcon, UsersIcon } from "@/components/shared/icons";
-import { DEFAULT_ROOM_COVER_IMAGE, RoomCover, THEME_LABELS } from "@/components/shared/room-cover";
-import { MEDIA_CONSTRAINTS } from "@/lib/contracts/constants";
+import { PlusIcon, StarIcon } from "@/components/shared/icons";
+import { THEME_LABELS } from "@/components/shared/room-cover";
 import type { Room } from "@/lib/contracts/types";
 
 type RoomFormProps = {
@@ -15,137 +14,166 @@ type RoomFormProps = {
   cancelHref: string;
 };
 
+type Theme = Room["theme"];
+
 const THEMES = ["sunrise", "rose", "night"] as const;
+const DESCRIPTION_MAX = 300;
+
+/**
+ * The real 3D room as a picture, one variant per theme (public/room-preview*.jpg, recoloured from the same render:
+ * walls, backdrop and light per theme; frames, plants and floor stay true). The tile has a hairline ring and rounded
+ * corners so its backdrop always reads as a picture sitting on the panel, never as part of the panel.
+ */
+const THEME_PICTURE: Record<Theme, { src: string; backdrop: string }> = {
+  sunrise: { src: "/room-preview.jpg", backdrop: "#f8eee0" },
+  rose: { src: "/room-preview-rose.jpg", backdrop: "#f3dfe5" },
+  night: { src: "/room-preview-night.jpg", backdrop: "#112039" },
+};
+
+function RoomPicture({ theme, className = "" }: { theme: Theme; className?: string }) {
+  const { src, backdrop } = THEME_PICTURE[theme];
+  return (
+    <span className={`relative block overflow-hidden rounded-xl ring-1 ring-inset ring-black/10 ${className}`} style={{ background: backdrop }}>
+      {/* eslint-disable-next-line @next/next/no-img-element -- static preview picture of the 3D room */}
+      <img alt="" className="size-full object-contain" src={src} />
+    </span>
+  );
+}
+
+function Avatar({ name, tone }: { name: string; tone: string }) {
+  return (
+    <span aria-hidden="true" className="font-display flex size-12 shrink-0 items-center justify-center rounded-full text-lg text-white" style={{ background: tone }}>
+      {name.charAt(0)}
+    </span>
+  );
+}
 
 export function RoomForm({ mode, room, cancelHref }: RoomFormProps) {
+  const isEdit = mode === "edit";
   const [name, setName] = useState(room?.name ?? "");
   const [period, setPeriod] = useState(room?.life_period ?? "");
-  const [theme, setTheme] = useState<Room["theme"]>(room?.theme ?? "sunrise");
-  const isEdit = mode === "edit";
-  const [coverUrl, setCoverUrl] = useState(DEFAULT_ROOM_COVER_IMAGE);
-  const [coverFile, setCoverFile] = useState<File | null>(null);
-  const [coverError, setCoverError] = useState<string | null>(null);
-  const objectUrl = useRef<string | null>(null);
+  // UI only: the data contract has no description field yet (add it to docs/CONTRACTS.md + schemas before saving it).
+  const [description, setDescription] = useState("");
+  const [theme, setTheme] = useState<Theme>(room?.theme ?? "sunrise");
 
-  useEffect(() => () => {
-    if (objectUrl.current) URL.revokeObjectURL(objectUrl.current);
-  }, []);
-
-  function chooseCover(file: File | undefined) {
-    if (!file) return;
-    if (!(MEDIA_CONSTRAINTS.acceptedMimeTypes as readonly string[]).includes(file.type)) {
-      setCoverError("Only JPEG, PNG and WebP files are supported");
-      return;
-    }
-    if (file.size > MEDIA_CONSTRAINTS.maxFileBytes) {
-      setCoverError("The image must be 10 MB or smaller");
-      return;
-    }
-    if (objectUrl.current) URL.revokeObjectURL(objectUrl.current);
-    objectUrl.current = URL.createObjectURL(file);
-    setCoverError(null);
-    setCoverFile(file);
-    setCoverUrl(objectUrl.current);
-  }
-
-  function resetCover() {
-    if (objectUrl.current) URL.revokeObjectURL(objectUrl.current);
-    objectUrl.current = null;
-    setCoverError(null);
-    setCoverFile(null);
-    setCoverUrl(DEFAULT_ROOM_COVER_IMAGE);
-  }
-
-  // TODO(T7/T9): upload coverFile to private storage and send its path with createRoom/updateRoom.
-  // Needs a room cover field in the contract (src/lib/contracts + docs/CONTRACTS.md) first.
   // TODO(T7/T9): call createRoom/updateRoom from src/lib/data.
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
   }
 
+  const memberCount = room?.member_count ?? 1;
+  const hasSecondMember = isEdit && memberCount >= 2;
+
   return (
     <div>
       <Breadcrumbs items={isEdit && room ? [{ label: "My rooms", href: "/" }, { label: room.name, href: cancelHref }, { label: "Edit room" }] : [{ label: "My rooms", href: "/" }, { label: "Create room" }]} />
-      <div className="grid items-start gap-5 lg:grid-cols-[1fr_1.1fr]">
+
+      <div className="mb-5 flex flex-wrap items-center gap-3">
+        <h1 className="title-xl">{isEdit ? "Edit room" : "Create a new room"}</h1>
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-[#fbecb9] px-3 py-1 text-xs font-semibold text-[#6f5210]">
+          <StarIcon className="size-3.5" /> Owner only
+        </span>
+      </div>
+      <p className="-mt-3 mb-5 text-sm text-[var(--color-muted)]">
+        {isEdit ? "Update your room details and see a live preview on the right." : "A private space to keep your memories, just for you and one invited person."}
+      </p>
+
+      <div className="grid items-start gap-5 lg:grid-cols-[1fr_1.05fr]">
         <form className="panel grid gap-5 p-5 sm:p-7" onSubmit={handleSubmit}>
-          <div>
-            <h1 className="title-xl">{isEdit ? "Edit room" : "Create a new room"}</h1>
-            <p className="mt-1.5 text-sm leading-6 text-[var(--color-muted)]">
-              {isEdit ? "Update your room details and see a live preview on the right." : "A private space to keep your memories, just for you and one invited person."}
-            </p>
-          </div>
+          <h2 className="font-display text-xl text-[var(--color-green-deep)]">Room settings</h2>
 
           <div>
             <label className="field-label" htmlFor="room-name">Room name</label>
             <input className="field-input" id="room-name" maxLength={80} name="name" onChange={(event) => setName(event.target.value)} placeholder="e.g. University Days" required value={name} />
-            <p className="mt-1 text-right text-[0.7rem] text-[var(--color-muted)]">{name.length}/80</p>
           </div>
 
           <div>
             <label className="field-label" htmlFor="life-period">Life period</label>
-            <input className="field-input" id="life-period" maxLength={80} name="life_period" onChange={(event) => setPeriod(event.target.value)} placeholder="e.g. University 2026 – 2029" required value={period} />
+            <input className="field-input" id="life-period" maxLength={80} name="life_period" onChange={(event) => setPeriod(event.target.value)} placeholder="e.g. Aug 2022 – May 2026" required value={period} />
+            <p className="mt-1 text-[0.7rem] text-[var(--color-muted)]">e.g. University, First Job, Travel Year</p>
+          </div>
+
+          <div>
+            <label className="field-label" htmlFor="room-description">Description</label>
+            <textarea className="field-input" id="room-description" maxLength={DESCRIPTION_MAX} name="description" onChange={(event) => setDescription(event.target.value)} placeholder="A few words about this chapter of your life" rows={4} value={description} />
+            <p className="mt-1 text-right text-[0.7rem] text-[var(--color-muted)]">{description.length} / {DESCRIPTION_MAX}</p>
           </div>
 
           <fieldset>
             <legend className="field-label">Room theme</legend>
+            <p className="-mt-1 mb-2.5 text-[0.72rem] text-[var(--color-muted)]">Choose a theme for your room. You can change it anytime.</p>
             <div className="grid grid-cols-3 gap-2.5">
               {THEMES.map((value) => (
                 <label className="cursor-pointer" key={value}>
                   <input checked={theme === value} className="peer sr-only" name="theme" onChange={() => setTheme(value)} type="radio" value={value} />
-                  <RoomCover className="aspect-[4/3] rounded-lg border-2 border-transparent ring-offset-2 transition peer-checked:border-[var(--color-green)] peer-checked:ring-2 peer-checked:ring-[var(--color-green)]/25 peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-[var(--color-green)]" theme={value} />
-                  <span className="mt-1 block text-center text-[0.72rem] font-medium text-[var(--color-green-deep)]">{THEME_LABELS[value]}</span>
+                  <span className="block overflow-hidden rounded-xl border-2 border-[var(--color-border)] bg-[var(--color-paper)] p-1.5 transition peer-checked:border-[var(--color-green)] peer-checked:ring-2 peer-checked:ring-[var(--color-green)]/25 peer-focus-visible:outline peer-focus-visible:outline-[3px] peer-focus-visible:outline-offset-2 peer-focus-visible:outline-[var(--color-green)] hover:border-[var(--color-border-strong)]">
+                    <RoomPicture className="aspect-[4/3] !rounded-lg" theme={value} />
+                    <span className="flex items-center gap-2 px-2.5 py-2 text-[0.78rem] font-medium text-[var(--color-green-deep)]">
+                      <span aria-hidden="true" className={`flex size-3.5 items-center justify-center rounded-full border ${theme === value ? "border-[var(--color-green)]" : "border-[var(--color-border-strong)]"}`}>
+                        {theme === value ? <span className="size-2 rounded-full bg-[var(--color-green)]" /> : null}
+                      </span>
+                      {THEME_LABELS[value]}
+                    </span>
+                  </span>
                 </label>
               ))}
             </div>
           </fieldset>
 
-          <div>
-            <p className="field-label" id="cover-label">Cover photo <small>(optional)</small></p>
-            <div className="flex flex-wrap items-center gap-3">
-              <RoomCover className="aspect-[16/10] w-36 shrink-0 rounded-lg border border-[var(--color-border)]" image={coverUrl} theme={theme} />
-              <div className="grid gap-2">
-                <label className="btn btn-secondary btn-sm cursor-pointer">
-                  <CameraIcon className="size-3.5" /> {coverFile ? "Change photo" : "Choose photo"}
-                  <input accept={MEDIA_CONSTRAINTS.acceptedMimeTypes.join(",")} aria-describedby="cover-hint" className="sr-only" name="cover" onChange={(event) => { chooseCover(event.target.files?.[0]); event.target.value = ""; }} type="file" />
-                </label>
-                {coverFile ? (
-                  <button className="btn btn-secondary btn-sm" onClick={resetCover} type="button"><TrashIcon className="size-3.5" /> Use default</button>
-                ) : null}
-              </div>
-            </div>
-            <p className="mt-2 text-[0.7rem] text-[var(--color-muted)]" id="cover-hint">JPEG, PNG or WebP, up to 10 MB. Shown with a dithered look.</p>
-            {coverError ? <p className="mt-2 rounded-lg bg-[#f8e3e3] px-3 py-2 text-xs text-[#8a3a3a]" role="alert">{coverError}</p> : null}
-          </div>
-
           <div className="flex flex-col gap-2.5 sm:flex-row">
-            <button className="btn btn-primary flex-1" type="submit">{isEdit ? "Save changes" : "Create room"}</button>
-            <Link className="btn btn-secondary flex-1" href={cancelHref}>Cancel</Link>
+            <button className="btn btn-primary sm:min-w-44" type="submit">{isEdit ? "Save changes" : "Create room"}</button>
+            <Link className="btn btn-secondary sm:min-w-32" href={cancelHref}>Cancel</Link>
           </div>
-          {isEdit ? null : (
-            <p className="flex items-center gap-2 text-xs text-[var(--color-muted)]"><UsersIcon className="size-4" /> You can invite one person after creating the room.</p>
-          )}
         </form>
 
-        <section aria-label="Room preview" className="panel overflow-hidden lg:sticky lg:top-6">
-          <div className="p-4 pb-2.5">
-            <h2 className="title-md">Live preview</h2>
-            <p className="text-xs text-[var(--color-muted)]">This is how your room will look.</p>
-          </div>
-          <div className="px-4 pb-4">
-            <RoomCover className="flex aspect-[16/10] items-end rounded-xl p-5" image={coverUrl} theme={theme}>
-              <span aria-hidden="true" className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" />
-              <div className="relative text-white [text-shadow:0_2px_12px_rgb(0_0_0/0.35)]">
-                <p className="font-display text-2xl sm:text-3xl">{name || "Your room name"}</p>
-                <p className="mt-0.5 text-xs">{period || "Life period"}</p>
-                <p className="mt-2.5 inline-flex items-center gap-1.5 text-[0.7rem]"><LockIcon className="size-3.5" /> Private room · just for you and one invited person</p>
-              </div>
-            </RoomCover>
-            <div className="mt-4 flex flex-col items-center py-5 text-center text-xs text-[var(--color-muted)]">
-              <span aria-hidden="true" className="mb-2.5 h-9 w-12 -rotate-3 rounded-sm border-[3px] border-[#b89262] bg-[var(--color-cream-100)] shadow-md" />
-              No memories yet — start collecting good days together.
+        <div className="grid gap-4 lg:sticky lg:top-6">
+          <section aria-label="Room preview" className="panel overflow-hidden">
+            <div className="p-5 pb-0">
+              <p className="eyebrow">Live preview</p>
+              <h2 className="mt-1 font-display text-3xl leading-tight">{name || "Your room name"}</h2>
+              <p className="mt-1 text-sm opacity-75">{period || "Life period"}</p>
+              {description ? <p className="mt-2 max-w-md text-xs leading-5 opacity-75">{description}</p> : null}
             </div>
-          </div>
-        </section>
+            <div className="p-5">
+              <RoomPicture className="aspect-[655/472] w-full" theme={theme} />
+            </div>
+          </section>
+
+          <section aria-labelledby="members-heading" className="panel p-5">
+            <h2 className="font-display text-lg text-[var(--color-green-deep)]" id="members-heading">
+              Members <span className="text-sm text-[var(--color-muted)]">({hasSecondMember ? 2 : 1} of 2 people)</span>
+            </h2>
+            <div className="mt-4 grid gap-4 sm:grid-cols-2">
+              <div className="flex items-center gap-3">
+                <Avatar name="Sea" tone="#2f5a4a" />
+                <div>
+                  <p className="text-sm font-semibold text-[var(--color-ink)]">Sea</p>
+                  <p className="inline-flex items-center gap-1 text-xs font-medium text-[#a07a1c]"><StarIcon className="size-3" /> Owner</p>
+                </div>
+              </div>
+              {hasSecondMember ? (
+                <div className="flex items-center gap-3">
+                  <Avatar name="Mint" tone="#8a7f9c" />
+                  <div>
+                    <p className="text-sm font-semibold text-[var(--color-ink)]">Mint</p>
+                    <p className="text-xs text-[var(--color-muted)]">Member</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center gap-3">
+                  <span aria-hidden="true" className="flex size-12 shrink-0 items-center justify-center rounded-full border-2 border-dashed border-[var(--color-border-strong)] text-[var(--color-muted)]">
+                    <PlusIcon className="size-5" />
+                  </span>
+                  <div>
+                    {/* TODO(T7/T9): invite flow. For now the invite code is shown once the room exists. */}
+                    <button className="text-sm font-semibold text-[var(--color-green)] disabled:cursor-not-allowed disabled:opacity-60" disabled title="Available after the room is created" type="button">Add member</button>
+                    <p className="text-xs text-[var(--color-muted)]">{isEdit && room ? `Invite code ${room.invite_code}` : "Invite one person after creating the room"}</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </section>
+        </div>
       </div>
     </div>
   );
