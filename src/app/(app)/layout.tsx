@@ -1,12 +1,15 @@
 import type { ReactNode } from "react";
 
 import { AppShell } from "@/components/layout/app-shell";
-import { mockRooms } from "@/lib/contracts/fixtures";
+import { getDataSource, getViewer } from "@/lib/data/server";
 
-// TODO(T5/T19): replace fixture room/user with the authenticated session.
-export default function AppLayout({ children }: { children: ReactNode }) {
+export default async function AppLayout({ children }: { children: ReactNode }) {
+  const [viewer, source] = await Promise.all([getViewer(), getDataSource()]);
+  const rooms = await source.listRooms();
+  const firstRoom = rooms.ok ? rooms.data[0] : undefined;
+
   return (
-    <AppShell galleryHref={`/rooms/${mockRooms[0].id}/gallery`} userName="Sea">
+    <AppShell galleryHref={firstRoom ? `/rooms/${firstRoom.id}/gallery` : "/rooms"} userName={viewer?.display_name ?? "Guest"}>
       {children}
     </AppShell>
   );

@@ -3,15 +3,16 @@ import Link from "next/link";
 import { Breadcrumbs } from "@/components/shared/breadcrumbs";
 import { ArrowRightIcon, LockIcon, PlusIcon, UsersIcon } from "@/components/shared/icons";
 import { DEFAULT_ROOM_COVER_IMAGE, RoomCover, THEME_LABELS } from "@/components/shared/room-cover";
-import { mockMemories, mockRooms } from "@/lib/contracts/fixtures";
+import { getDataSource, getRoomMembers } from "@/lib/data/server";
+import { unwrap } from "@/lib/data/unwrap";
 
-// TODO(T6/T19): replace fixtures with listRooms() and real member profiles.
-const MEMBERS = [
-  { name: "Sea", role: "Owner" },
-  { name: "Mint", role: "Member" },
-];
+export default async function MyRoomsPage() {
+  const source = await getDataSource();
+  const rooms = unwrap(await source.listRooms());
+  const counts = new Map<string, number>();
+  for (const room of rooms) counts.set(room.id, unwrap(await source.listMemories({ room_id: room.id, page: 1, page_size: 1 })).total);
+  const members = unwrap(await getRoomMembers(rooms.map((room) => room.id)));
 
-export default function MyRoomsPage() {
   return (
     <div>
       <Breadcrumbs items={[{ label: "Home", href: "/" }, { label: "My rooms" }]} />
@@ -30,9 +31,10 @@ export default function MyRoomsPage() {
       </header>
 
       <ul className="mt-6 grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
-        {mockRooms.map((room) => {
-          const count = mockMemories.filter((memory) => memory.room_id === room.id).length;
-          const members = MEMBERS.slice(0, room.member_count);
+        {rooms.length === 0 ? <li className="panel col-span-full p-8 text-center text-sm text-[var(--color-muted)]">You are not in any room yet. Create one, or join with an invite code.</li> : null}
+        {rooms.map((room) => {
+          const count = counts.get(room.id) ?? 0;
+          const roomMembers = members.get(room.id) ?? [];
 
           return (
             <li className="panel flex flex-col overflow-hidden" key={room.id}>
@@ -48,18 +50,18 @@ export default function MyRoomsPage() {
                 <h2 className="title-lg">{room.name}</h2>
                 <p className="mt-0.5 text-sm text-[var(--color-muted)]">{count} {count === 1 ? "memory" : "memories"}</p>
                 <p className="mt-2 text-[0.82rem] leading-6 text-[var(--color-muted)]">
-                  {room.life_period} · {THEME_LABELS[room.theme]} theme. A private room for the days worth keeping.
+                  {room.life_period} · {THEME_LABELS[room.theme]} theme. {room.description ?? "A private room for the days worth keeping."}
                 </p>
 
                 <div className="mt-auto border-t border-[var(--color-border)] pt-3">
                   <p className="text-[0.72rem] text-[var(--color-muted)]">Members ({room.member_count})</p>
                   <ul className="mt-2 flex flex-wrap gap-x-5 gap-y-2">
-                    {members.map((member) => (
-                      <li className="flex items-center gap-2" key={member.name}>
-                        <span aria-hidden="true" className="font-display flex size-8 items-center justify-center rounded-full bg-[var(--color-sage)] text-sm text-[var(--color-green-deep)]">{member.name.charAt(0)}</span>
+                    {roomMembers.map((member) => (
+                      <li className="flex items-center gap-2" key={member.user_id}>
+                        <span aria-hidden="true" className="font-display flex size-8 items-center justify-center rounded-full bg-[var(--color-sage)] text-sm text-[var(--color-green-deep)]">{member.display_name.charAt(0)}</span>
                         <span className="text-[0.78rem] font-medium leading-tight text-[var(--color-ink)]">
-                          {member.name}
-                          {member.role === "Owner" ? <span className="block text-[0.66rem] font-normal text-[var(--color-muted)]">Owner</span> : null}
+                          {member.display_name}
+                          {member.role === "owner" ? <span className="block text-[0.66rem] font-normal text-[var(--color-muted)]">Owner</span> : null}
                         </span>
                       </li>
                     ))}

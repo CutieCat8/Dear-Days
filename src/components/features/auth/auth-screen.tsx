@@ -1,13 +1,18 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 
 import { ArrowRightIcon, EyeIcon, LeafIcon, LockIcon, MailIcon } from "@/components/shared/icons";
 import { RoomCover } from "@/components/shared/room-cover";
+import { dataMode } from "@/lib/data/config";
+import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 type AuthScreenProps = {
   mode: "sign-in" | "sign-up";
+  /** Same-site path to return to after signing in (set by the proxy redirect, e.g. an invite link). */
+  next?: string;
 };
 
 const COPY = {
@@ -34,13 +39,74 @@ const POLAROIDS = [
   { caption: "Little moments, kept forever", theme: "night", className: "rotate-2" },
 ] as const;
 
-export function AuthScreen({ mode }: AuthScreenProps) {
+export function AuthScreen({ mode, next = "/" }: AuthScreenProps) {
   const copy = COPY[mode];
   const [showPassword, setShowPassword] = useState(false);
 
-  // TODO(T5): connect to Supabase Auth with the shared zod schemas.
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  const router = useRouter();
+  const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [pending, setPending] = useState(false);
+
+  /** Where to go after signing in: the page the proxy redirected from, same-site paths only. */
+  function nextPath() {
+    return next;
+  }
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    setError(null);
+    setNotice(null);
+
+    if (dataMode() === "mock") {
+      router.push("/"); // demo mode has no accounts
+      return;
+    }
+
+    const form = new FormData(event.currentTarget);
+    const email = String(form.get("email") ?? "").trim();
+    const password = String(form.get("password") ?? "");
+    const displayName = String(form.get("display_name") ?? "").trim();
+    if (mode === "sign-up" && (displayName.length < 1 || displayName.length > 50)) {
+      setError("Please enter a display name (1–50 characters).");
+      return;
+    }
+
+    setPending(true);
+    try {
+      const supabase = createSupabaseBrowserClient();
+      if (mode === "sign-in") {
+        const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+        if (signInError) {
+          // one message for wrong e-mail and wrong password: never reveal which accounts exist
+          setError(signInError.message === "Email not confirmed" ? "Please confirm your e-mail first. Check your inbox for the link." : signInError.status === 429 ? "Too many attempts. Please wait a moment and try again." : "The e-mail or password is not correct.");
+          return;
+        }
+        router.replace(nextPath());
+        router.refresh();
+      } else {
+        const { data, error: signUpError } = await supabase.auth.signUp({
+          email,
+          password,
+          options: { data: { display_name: displayName }, emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}` },
+        });
+        if (signUpError) {
+          setError(signUpError.status === 429 ? "Too many attempts. Please wait a moment and try again." : signUpError.message);
+          return;
+        }
+        if (data.session) {
+          router.replace(nextPath());
+          router.refresh();
+        } else {
+          // the project requires e-mail confirmation: no session until the link is opened
+          setNotice("Almost there! We sent a confirmation link to your e-mail. Open it, then sign in.");
+        }
+      }
+    } catch {
+      setError("We could not reach the server. Please check your connection and try again.");
+    } finally {
+      setPending(false);
+    }
   }
 
   return (
@@ -104,13 +170,15 @@ export function AuthScreen({ mode }: AuthScreenProps) {
                 <p className="mt-1.5 text-xs text-[var(--color-muted)]">At least 8 characters</p>
               )}
             </div>
-            <button className="btn btn-primary w-full" type="submit">{copy.submit} <ArrowRightIcon className="size-4" /></button>
+            {error ? <p className="rounded-lg bg-[#f8e3e3] px-3 py-2 text-xs text-[#8a3a3a]" role="alert">{error}</p> : null}
+            {notice ? <p className="rounded-lg bg-[var(--color-sage)] px-3 py-2 text-xs text-[var(--color-green-deep)]" role="status">{notice}</p> : null}
+            <button className="btn btn-primary w-full disabled:opacity-60" disabled={pending} type="submit">{pending ? "Please wait…" : copy.submit} <ArrowRightIcon className="size-4" /></button>
           </form>
 
           <div className="my-5 flex items-center gap-3 text-xs text-[var(--color-muted)]">
             <span className="h-px flex-1 bg-[var(--color-border)]" /> or <span className="h-px flex-1 bg-[var(--color-border)]" />
           </div>
-          <Link className="btn btn-secondary w-full" href={copy.altHref}>{copy.altLabel}</Link>
+          <Link className="btn btn-secondary w-full" href={next === "/" ? copy.altHref : `${copy.altHref}?next=${encodeURIComponent(next)}`}>{copy.altLabel}</Link>
           <p className="mt-3 text-center text-xs text-[var(--color-muted)]">{copy.altText}</p>
         </div>
       </section>
