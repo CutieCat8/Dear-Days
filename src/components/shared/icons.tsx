@@ -141,3 +141,15 @@ export function StarIcon(props: IconProps) {
 export function ChevronDownIcon(props: IconProps) {
   return <IconBase {...props}><path d="m6 9 6 6 6-6" {...stroke} /></IconBase>;
 }
+
+export function ShieldIcon(props: IconProps) {
+  return <IconBase {...props}><path d="M12 3.5 5 6v5.5c0 4.2 2.9 7.6 7 9 4.1-1.4 7-4.8 7-9V6l-7-2.5Z" {...stroke} /></IconBase>;
+}
+
+export function ChartIcon(props: IconProps) {
+  return <IconBase {...props}><path d="M5 20V13M10 20V8M15 20v-5M20 20V5" {...stroke} /></IconBase>;
+}
+
+export function LogOutIcon(props: IconProps) {
+  return <IconBase {...props}><path d="M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4M10 16l-4-4 4-4M6 12h10" {...stroke} /></IconBase>;
+}
