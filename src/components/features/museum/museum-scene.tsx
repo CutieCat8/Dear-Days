@@ -10,17 +10,22 @@ import { ArrowLeftIcon, ArrowRightIcon, BookIcon, CloseIcon, PinIcon } from "@/c
 import { useSceneHost } from "@/components/layout/scene-host";
 import { MoodBadge } from "@/components/shared/mood-badge";
 import type { Memory } from "@/lib/contracts/types";
+import { createBrowserDataSource } from "@/lib/data/browser";
 
+import { FramePicker } from "./frame-picker";
 import { resolveMemoryCover } from "./memory-cover";
 import { useFreshMemories } from "./use-fresh-memories";
 import styles from "./museum-scene.module.css";
 import type { CameraApi, CameraState, SceneLayout } from "./room-3d/camera-controller";
 import { panelWidthFor } from "./room-3d/config";
 import { SceneErrorBoundary } from "./room-3d/error-boundary";
-import { visibleMemories } from "./room-3d/slots";
+import { assignMemories, displayedPins, placeInFrame, visibleMemories, type FramePins } from "./room-3d/slots";
 
 type MuseumSceneProps = {
   memories: Memory[];
+  roomId: string;
+  /** Photos the members pinned to specific frames when the page was loaded. */
+  initialPins: FramePins;
 };
 
 /** Three.js is client-only and heavy: load it lazily, never during SSR. */
@@ -58,10 +63,16 @@ function SceneFallback({ memories }: { memories: Memory[] }) {
   );
 }
 
-export function MuseumScene({ memories: loaded }: MuseumSceneProps) {
+export function MuseumScene({ memories: loaded, roomId, initialPins }: MuseumSceneProps) {
   const memories = useFreshMemories(loaded);
+  const [pins, setPins] = useState<FramePins>(initialPins);
+  const [arranging, setArranging] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   // Objects in the room, in a stable order; previous/next walk exactly these.
-  const shown = useMemo(() => visibleMemories(memories), [memories]);
+  const shown = useMemo(() => visibleMemories(memories, pins), [memories, pins]);
+  const frames = useMemo(() => assignMemories(memories, pins).frames, [memories, pins]);
+  const photos = useMemo(() => memories.filter((memory) => memory.media.length > 0), [memories]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
   const [photoFailed, setPhotoFailed] = useState(false);
@@ -100,6 +111,39 @@ export function MuseumScene({ memories: loaded }: MuseumSceneProps) {
     const visibleWidth = stage.width - (selected ? panelWidth : 0);
     return { x: stage.left + visibleWidth / 2 - vw / 2, y: -(stage.top + stage.height / 2 - vh / 2) };
   };
+  const selectedFrame = frames.find((item) => item.memory.id === selectedId)?.slot ?? null;
+
+  /** Saves the whole arrangement; on success the room shows it, on failure nothing changes. */
+  const saveLayout = async (next: FramePins) => {
+    setSaving(true);
+    setSaveError(null);
+    const result = await createBrowserDataSource().setFrameLayout(roomId, next);
+    setSaving(false);
+    if (!result.ok) {
+      setSaveError(result.error.message);
+      return false;
+    }
+    setPins(next);
+    return true;
+  };
+
+  /** Hangs a photo in the selected frame (swapping if it hung elsewhere). Every other frame stays exactly as it looks. */
+  const chooseForFrame = async (memoryId: string) => {
+    if (!selectedFrame) return;
+    const next = placeInFrame(displayedPins(frames), selectedFrame.id, memoryId);
+    if (await saveLayout(next)) setSelectedId(memoryId);
+  };
+
+  const resetFrames = async () => {
+    if (await saveLayout({})) setSelectedId(null);
+  };
+
+  const toggleArranging = () => {
+    setArranging((on) => !on);
+    setSaveError(null);
+    setSelectedId(null);
+  };
+
   const step = (delta: number) => setSelectedId(shown[(index + delta + shown.length) % shown.length].id);
 
   // Escape closes the memory panel first; once it is closed, it leaves wall focus.
@@ -117,7 +161,7 @@ export function MuseumScene({ memories: loaded }: MuseumSceneProps) {
   const canvasNode = (
     <div className={styles.canvasWrap}>
       <SceneErrorBoundary fallback={<SceneFallback memories={shown} />}>
-        <RoomCanvas memories={memories} apiRef={cameraRef} getLayout={getLayout} onImageError={handleImageError} onStateChange={setCamera} onReady={handleReady} onSelect={setSelectedId} selectedId={selectedId} />
+        <RoomCanvas memories={memories} apiRef={cameraRef} getLayout={getLayout} onImageError={handleImageError} onStateChange={setCamera} onReady={handleReady} onSelect={setSelectedId} pins={pins} selectedId={selectedId} />
       </SceneErrorBoundary>
     </div>
   );
@@ -165,12 +209,32 @@ export function MuseumScene({ memories: loaded }: MuseumSceneProps) {
               </>
             )}
             <button className={styles.pill} onClick={() => cameraRef.current?.reset()} type="button">Reset view</button>
+            {photos.length > 0 && (
+              <button aria-pressed={arranging} className={styles.pill} onClick={toggleArranging} type="button">{arranging ? "Done arranging" : "Arrange frames"}</button>
+            )}
+            {arranging && (
+              <button className={styles.pill} disabled={saving || Object.keys(pins).length === 0} onClick={resetFrames} type="button">Reset to automatic</button>
+            )}
           </div>
+          {arranging && <p className={styles.hint}>Click a frame to choose which photo hangs in it.</p>}
           <p className={styles.hint}>{mode === "overview" ? "Drag to rotate · Shift+drag or right-drag to move · Scroll to zoom" : "Drag to slide the wall · Scroll to zoom"}</p>
         </div>
       )}
 
-      {selected && <MemoryPanel memory={selected} onClose={() => setSelectedId(null)} onStep={step} />}
+      {arranging && selected && selectedFrame ? (
+        <FramePicker
+          currentId={selected.id}
+          error={saveError}
+          hangingIds={new Set(frames.map((item) => item.memory.id))}
+          onChoose={chooseForFrame}
+          onClose={() => setSelectedId(null)}
+          photos={photos}
+          saving={saving}
+        />
+      ) : (
+        selected && <MemoryPanel memory={selected} onClose={() => setSelectedId(null)} onStep={step} />
+      )}
+      {arranging && saveError && !selected && <p className={styles.notice} role="alert">{saveError}</p>}
     </div>
   );
 }

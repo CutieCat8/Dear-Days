@@ -16,6 +16,10 @@ Components and route pages never query tables directly.
 | `unwrap.ts` | Page helper: `UNAUTHENTICATED` redirects to `/sign-in`, `NOT_FOUND`/`FORBIDDEN` render 404, else throws. |
 | `profile.ts`, `overview.ts` | Contract `Profile` (`getCurrentProfile`), account page data (`Account`: profile + e-mail + bio), `listRoomMembers` (`RoomMemberView`, owner first), home overview. |
 
+Picture frames: `room_frame_slots` stores which photo memory the members pinned to which 3D frame (`listFrameAssignments`,
+`setFrameLayout` → RPC `set_frame_layout`, which replaces the whole arrangement in one transaction). Frames without a row are
+filled automatically (`museum/room-3d/slots.ts`). If the table is missing the room still renders with the automatic layout.
+
 Types: `src/lib/supabase/database.types.ts` is generated from the migrations. Regenerate after every migration:
 `npx supabase gen types typescript --local --schema public > src/lib/supabase/database.types.ts`.
 

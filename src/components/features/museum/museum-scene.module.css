@@ -398,3 +398,101 @@
   font-size: 0.72rem;
   text-align: center;
 }
+
+/* "Arrange frames" mode: photo picker inside the side panel. */
+.pickerHint {
+  margin: 0;
+  padding: 0 1rem 0.6rem;
+  color: var(--color-muted);
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+.pickerError {
+  margin: 0 1rem 0.6rem;
+  padding: 0.45rem 0.7rem;
+  border-radius: 0.5rem;
+  background: #fbe9e4;
+  color: #8a3a26;
+  font-size: 0.78rem;
+}
+
+.pickerList {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin: 0;
+  padding: 0 0.75rem 0.85rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  list-style: none;
+}
+
+.pickerItem {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.35rem;
+  border: 1px solid transparent;
+  border-radius: 0.6rem;
+  background: transparent;
+  color: var(--color-green-deep);
+  text-align: left;
+  cursor: pointer;
+}
+
+.pickerItem:hover:not(:disabled) {
+  background: var(--color-sage);
+}
+
+.pickerItem:focus-visible {
+  outline: 3px solid var(--color-honey);
+  outline-offset: 2px;
+}
+
+.pickerItem[data-current] {
+  border-color: var(--color-green);
+  background: color-mix(in srgb, var(--color-sage) 60%, transparent);
+}
+
+.pickerItem:disabled:not([data-current]) {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+.pickerThumb {
+  position: relative;
+  flex: none;
+  width: 3.5rem;
+  height: 3.5rem;
+  overflow: hidden;
+  border-radius: 0.45rem;
+  background: var(--color-sage);
+}
+
+.pickerThumb img {
+  object-fit: cover;
+}
+
+.pickerText {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.pickerTitle {
+  overflow: hidden;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pickerMeta {
+  color: var(--color-muted);
+  font-size: 0.72rem;
+}

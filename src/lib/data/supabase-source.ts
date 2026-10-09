@@ -4,7 +4,7 @@ import type { Database, Json } from "@/lib/supabase/database.types";
 
 import type { DearDaysDataSource } from "@/lib/contracts/data-functions";
 import { memoryInputSchema, memoryListParamsSchema, profileInputSchema, roomInputSchema, tagInputSchema } from "@/lib/contracts/schemas";
-import type { DataResult, Memory, MemoryInput, MemoryListParams, NewMediaUpload, Paginated, Profile, ProfileInput, Room, RoomInput, RoomMemberView, Tag, TagInput } from "@/lib/contracts/types";
+import type { DataResult, FrameAssignment, Memory, MemoryInput, MemoryListParams, NewMediaUpload, Paginated, Profile, ProfileInput, Room, RoomInput, RoomMemberView, Tag, TagInput } from "@/lib/contracts/types";
 
 import { MEMORY_SELECT, mediaPaths, memoryFromRow, roomFromRow, tagFromRow, type MemoryRow, type RoomRow, type TagRow } from "./mappers";
 import { MEMORY_BUCKET, planMemorySave } from "./memory-payload";
@@ -272,6 +272,20 @@ export class SupabaseDataSource implements DearDaysDataSource {
   }
 
   // -------------------------------------------------------------- tags
+
+  async listFrameAssignments(roomId: string): Promise<DataResult<FrameAssignment[]>> {
+    if (!(await this.userId())) return fail("UNAUTHENTICATED", "Please sign in to continue.");
+    const { data, error } = await this.client.from("room_frame_slots").select("slot_id, memory_id").eq("room_id", roomId);
+    if (error) return failFrom(error);
+    return ok(data);
+  }
+
+  async setFrameLayout(roomId: string, layout: Record<string, string>): Promise<DataResult<FrameAssignment[]>> {
+    if (!(await this.userId())) return fail("UNAUTHENTICATED", "Please sign in to continue.");
+    const { error } = await this.client.rpc("set_frame_layout", { p_room_id: roomId, p_layout: layout });
+    if (error) return failFrom(error);
+    return ok(Object.entries(layout).map(([slot_id, memory_id]) => ({ slot_id, memory_id })));
+  }
 
   async listTags(roomId: string): Promise<DataResult<Tag[]>> {
     if (!(await this.userId())) return fail("UNAUTHENTICATED", "Please sign in to continue.");

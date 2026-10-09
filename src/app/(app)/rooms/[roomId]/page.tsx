@@ -24,6 +24,10 @@ export default async function RoomPage({ params }: RoomPageProps) {
     if (!result.has_more) break;
   }
 
+  // A missing or unreadable layout must never break the room: the frames then fill automatically.
+  const assignments = await source.listFrameAssignments(room.id);
+  const framePins = Object.fromEntries((assignments.ok ? assignments.data : []).map((item) => [item.slot_id, item.memory_id]));
+
   const viewer = await getViewer();
-  return <MuseumRoom canEditRoom={viewer?.id === room.owner_id} memories={memories} room={room} total={total} />;
+  return <MuseumRoom canEditRoom={viewer?.id === room.owner_id} framePins={framePins} memories={memories} room={room} total={total} />;
 }

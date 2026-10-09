@@ -1,6 +1,6 @@
 import type { DearDaysDataSource } from "@/lib/contracts/data-functions";
 import { mockCurrentProfile, mockMemories, mockRoomMembers, mockRooms, mockTags } from "@/lib/contracts/fixtures";
-import type { DataResult, Memory, MemoryListParams, Paginated, Profile, Room, RoomMemberView, Tag } from "@/lib/contracts/types";
+import type { DataResult, FrameAssignment, Memory, MemoryListParams, Paginated, Profile, Room, RoomMemberView, Tag } from "@/lib/contracts/types";
 
 import { fail, ok } from "./result";
 
@@ -81,6 +81,14 @@ export class MockDataSource implements DearDaysDataSource {
   }
 
   async deleteMemory(): Promise<DataResult<{ id: string }>> {
+    return fail("INTERNAL_ERROR", READ_ONLY);
+  }
+
+  async listFrameAssignments(): Promise<DataResult<FrameAssignment[]>> {
+    return ok([]);
+  }
+
+  async setFrameLayout(): Promise<DataResult<FrameAssignment[]>> {
     return fail("INTERNAL_ERROR", READ_ONLY);
   }
 

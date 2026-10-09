@@ -8,17 +8,20 @@ import type { Memory, Room } from "@/lib/contracts/types";
 
 import { MemoryCard } from "./memory-card";
 import { MuseumScene } from "./museum-scene";
+import type { FramePins } from "./room-3d/slots";
 
 type MuseumRoomProps = {
   room: Room;
   memories: Memory[];
   /** All memories in the room (can be more than the ones loaded for the scene). */
   total?: number;
+  /** Photos the members pinned to specific frames (frame id → memory id). */
+  framePins?: FramePins;
   /** Only the owner can edit the room. */
   canEditRoom?: boolean;
 };
 
-export function MuseumRoom({ room, memories, total = memories.length, canEditRoom = false }: MuseumRoomProps) {
+export function MuseumRoom({ room, memories, total = memories.length, canEditRoom = false, framePins = {} }: MuseumRoomProps) {
   const basePath = `/rooms/${room.id}`;
 
   return (
@@ -47,7 +50,7 @@ export function MuseumRoom({ room, memories, total = memories.length, canEditRoo
         <>
           <section aria-labelledby="museum-heading" className="hidden lg:flex lg:flex-1 lg:flex-col">
             <h2 className="sr-only" id="museum-heading">Memory museum room</h2>
-            <MuseumScene memories={memories} />
+            <MuseumScene initialPins={framePins} memories={memories} roomId={room.id} />
           </section>
 
           <section aria-labelledby="mobile-memories-heading" className="lg:hidden">

@@ -137,6 +137,26 @@ isOneToOne: false
                   Relationships: [
                     
                   ]
+                },"room_frame_slots": {
+                  Row: {
+                    "memory_id": string,"room_id": string,"slot_id": string,"updated_at": string,"updated_by": string | null
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "memory_id": string,"room_id": string,"slot_id": string,"updated_at"?: string,"updated_by"?: string | null
+                  }
+                  Update: {
+                    "memory_id"?: string,"room_id"?: string,"slot_id"?: string,"updated_at"?: string,"updated_by"?: string | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "room_frame_slots_memory_fkey"
+      columns: ["memory_id","room_id"]
+isOneToOne: false
+      referencedRelation: "memories"
+      referencedColumns: ["id","room_id"]
+    }
+                  ]
                 },"tags": {
                   Row: {
                     "created_at": string,"id": string,"label": string,"room_id": string,"type": string
@@ -226,6 +246,9 @@ isOneToOne: false
                            },
 "save_memory":
 { Args: { "p_input": Json,"p_memory_id": string,"p_room_id": string }; Returns: Json
+                           },
+"set_frame_layout":
+{ Args: { "p_layout": Json,"p_room_id": string }; Returns: undefined
                            },
 "shares_room_with":
 { Args: { "p_user_id": string }; Returns: boolean
