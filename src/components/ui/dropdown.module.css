@@ -1,0 +1,211 @@
+.root {
+  position: relative;
+}
+
+.trigger {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  cursor: pointer;
+  text-align: left;
+}
+
+.trigger:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* No box: icon + label + chevron, like a filter label. */
+.bare {
+  display: inline-flex;
+  width: auto;
+  min-height: 2.2rem;
+  padding: 0.3rem 0.5rem;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  box-shadow: none;
+  color: var(--color-muted);
+  font-size: 0.88rem;
+  font-weight: 400;
+  transition: color 160ms ease, background 160ms ease;
+}
+
+.bare:hover,
+.bare[aria-expanded="true"] {
+  background: color-mix(in srgb, var(--color-sage) 45%, transparent);
+  color: var(--color-green-deep);
+}
+
+.bare:focus-visible {
+  outline: 3px solid var(--color-honey);
+  outline-offset: 1px;
+}
+
+.bare .label {
+  flex: none;
+}
+
+.icon {
+  display: inline-flex;
+  flex: none;
+  color: var(--color-sage-strong);
+}
+
+.icon svg {
+  width: 1.05rem;
+  height: 1.05rem;
+}
+
+.label {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.placeholder {
+  color: var(--color-muted);
+}
+
+.chevron {
+  flex: none;
+  width: 1rem;
+  height: 1rem;
+  color: var(--color-muted);
+  transition: transform 260ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.chevron[data-open] {
+  transform: rotate(180deg);
+}
+
+/* The box grows from the trigger downwards (grid rows 0fr -> 1fr); then its options appear one after another. */
+.menu {
+  position: absolute;
+  z-index: 40;
+  top: calc(100% + 0.4rem);
+  left: 0;
+  display: grid;
+  width: max-content;
+  min-width: 100%;
+  max-width: min(22rem, 90vw);
+  grid-template-rows: 0fr;
+  visibility: hidden;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: var(--color-paper);
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-0.35rem) scale(0.97);
+  transform-origin: top left;
+  transition:
+    grid-template-rows 280ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    opacity 180ms ease,
+    transform 280ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    border-color 180ms ease,
+    box-shadow 280ms ease,
+    visibility 0s linear 280ms;
+}
+
+.menu[data-open] {
+  grid-template-rows: 1fr;
+  visibility: visible;
+  border-color: var(--color-border);
+  box-shadow: var(--shadow-soft);
+  opacity: 1;
+  pointer-events: auto;
+  transform: none;
+  transition-delay: 0s;
+}
+
+.menuInner {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.list {
+  position: relative;
+  max-height: 24rem;
+  margin: 0;
+  padding: 0.4rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  list-style: none;
+  /* long lists still scroll (wheel / keyboard), but without a visible scrollbar */
+  scrollbar-width: none;
+}
+
+.list::-webkit-scrollbar {
+  display: none;
+}
+
+.separator {
+  height: 1px;
+  margin: 0.3rem 0.5rem;
+  background: var(--color-border);
+}
+
+/* Soft background that glides to the option under the pointer or the keyboard focus. */
+.highlight {
+  position: absolute;
+  top: 0;
+  right: 0.4rem;
+  left: 0.4rem;
+  height: 0;
+  border-radius: 0.55rem;
+  background: color-mix(in srgb, var(--color-sage) 70%, transparent);
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    height 220ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    opacity 160ms ease;
+}
+
+.option {
+  position: relative;
+  display: flex;
+  min-height: 2.35rem;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.35rem 0.7rem;
+  border-radius: 0.55rem;
+  color: var(--color-muted);
+  font-size: 0.88rem;
+  cursor: pointer;
+  opacity: 0;
+  transform: translateY(-0.4rem);
+  transition: color 160ms ease, opacity 0s, transform 0s;
+}
+
+.option[data-selected] {
+  color: var(--option-color, var(--color-green-deep));
+  font-weight: 600;
+}
+
+.option[data-active] {
+  color: var(--option-color, var(--color-green-deep));
+}
+
+.menu[data-open] .option {
+  opacity: 1;
+  transform: none;
+  transition:
+    color 160ms ease,
+    opacity 260ms ease calc(90ms + var(--i) * 45ms),
+    transform 320ms cubic-bezier(0.2, 0.8, 0.2, 1) calc(90ms + var(--i) * 45ms);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .menu,
+  .menu[data-open],
+  .chevron,
+  .highlight,
+  .option,
+  .menu[data-open] .option {
+    transition-duration: 0s;
+    transition-delay: 0s;
+  }
+}

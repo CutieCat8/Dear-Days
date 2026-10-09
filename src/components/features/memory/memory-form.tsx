@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useSyncExternalStore, type FormEvent, type KeyboardEvent } from "react";
 
 import { Breadcrumbs } from "@/components/shared/breadcrumbs";
-import { CalendarIcon, CameraIcon, CloseIcon, EditIcon, FrownIcon, GripIcon, InfoIcon, LeafIcon, LockIcon, MehIcon, PinIcon, SearchIcon, SmileIcon, SparkleIcon, StarIcon, TrashIcon, UsersIcon } from "@/components/shared/icons";
+import { Dropdown } from "@/components/ui/dropdown";
+import { CalendarIcon, CameraIcon, CloseIcon, DoorIcon, EditIcon, FrownIcon, GripIcon, InfoIcon, LeafIcon, LockIcon, MehIcon, PinIcon, SearchIcon, SmileIcon, SparkleIcon, StarIcon, TrashIcon, UsersIcon } from "@/components/shared/icons";
 import { MEDIA_CONSTRAINTS, MOOD_LABELS, MOODS } from "@/lib/contracts/constants";
 import type { Memory, MemoryInput, Mood, NewMediaUpload, Room, Tag } from "@/lib/contracts/types";
 import { createBrowserDataSource } from "@/lib/data/browser";
@@ -293,9 +294,7 @@ export function MemoryForm({ mode, room: initialRoom, rooms = [initialRoom], mem
           {isEdit || rooms.length < 2 ? (
             <p className="field-input flex items-center bg-[var(--color-cream-100)]" id="room-id">{room.name}</p>
           ) : (
-            <select className="field-input" id="room-id" name="room_id" onChange={(event) => setRoomId(event.target.value)} value={roomId}>
-              {rooms.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
-            </select>
+            <Dropdown icon={<DoorIcon />} id="room-id" name="room_id" onChange={setRoomId} options={rooms.map((item) => ({ value: item.id, label: item.name }))} value={roomId} />
           )}
           {isEdit || rooms.length < 2 ? null : <p className="mt-1.5 text-[0.7rem] text-[var(--color-muted)]">Choose which room this memory is saved to.</p>}
         </div>
