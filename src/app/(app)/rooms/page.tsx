@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { Breadcrumbs } from "@/components/shared/breadcrumbs";
 import { ArrowRightIcon, LockIcon, PlusIcon, UsersIcon } from "@/components/shared/icons";
+import { ProfileAvatar } from "@/components/shared/profile-avatar";
 import { DEFAULT_ROOM_COVER_IMAGE, RoomCover, THEME_LABELS } from "@/components/shared/room-cover";
 import { getDataSource, getRoomMembers } from "@/lib/data/server";
 import { unwrap } from "@/lib/data/unwrap";
@@ -61,7 +62,7 @@ export default async function MyRoomsPage() {
                   <ul className="mt-2 flex flex-wrap gap-x-5 gap-y-2">
                     {roomMembers.map((member) => (
                       <li className="flex items-center gap-2" key={member.user_id}>
-                        <span aria-hidden="true" className="font-display flex size-8 items-center justify-center rounded-full bg-[var(--color-sage)] text-sm text-[var(--color-green-deep)]">{member.display_name.charAt(0)}</span>
+                        <ProfileAvatar className="size-8 bg-[var(--color-sage)] text-sm text-[var(--color-green-deep)]" name={member.display_name} src={member.avatar_url} />
                         <span className="text-[0.78rem] font-medium leading-tight text-[var(--color-ink)]">
                           {member.display_name}
                           {member.role === "owner" ? <span className="block text-[0.66rem] font-normal text-[var(--color-muted)]">Owner</span> : null}

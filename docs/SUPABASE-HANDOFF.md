@@ -129,7 +129,23 @@ prefix.
 - Remove the legacy username fallback after every supported schema includes `profiles.username`.
 
 ## Not done
-Multi-account browser flows on hosted and the e-mail round-trip (above), avatar upload (the column exists, no upload UI), rate limiting of invite-code guesses, mobile 3D loading (backlog in `docs/ROOM-3D-HANDOFF.md`), deployment.
+Multi-account browser flows on hosted and the e-mail round-trip (above), rate limiting of invite-code guesses, mobile 3D loading (backlog in `docs/ROOM-3D-HANDOFF.md`), deployment.
+
+## Pending hosted migration: profile media
+
+`20261011000200_profile_media.sql` is intentionally **not applied to hosted** on this branch. It adds nullable
+`profiles.avatar_path` / `profiles.cover_path`, grants only those two UPDATE columns to authenticated users, and creates
+the private `profile-media` bucket (5 MiB; JPEG/PNG/WebP). Object reads mirror the existing `profiles_select` rule
+(self, shared room, or existing friendship/request); inserts and deletes are restricted to the first path segment equal
+to `auth.uid()`. There is no Storage UPDATE policy: replacements always use a fresh object path.
+
+Before merging/deploying the application code, apply this migration to the target project. The data layer temporarily
+falls back to the legacy `avatar_url` column when the migration is absent, but upload controls require the new columns
+and bucket. Signed URLs are created on reads and are never stored in `profiles`.
+
+Required verification before hosted apply remains: `npm run test:db`, a local Supabase reset, and
+`npm run test:integration`. The added checks cover owner replacement ordering, old-object cleanup, a shared-room reader,
+an outsider, private public-URL behavior, and attempts to insert/update/delete objects under another user's path.
 
 ## After pulling
 ```

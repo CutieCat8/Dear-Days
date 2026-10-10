@@ -9,7 +9,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
   const firstRoom = rooms.ok ? rooms.data[0] : undefined;
 
   return (
-    <AppShell galleryHref={firstRoom ? `/rooms/${firstRoom.id}/gallery` : "/rooms"} userName={viewer?.display_name ?? "Guest"}>
+    <AppShell galleryHref={firstRoom ? `/rooms/${firstRoom.id}/gallery` : "/rooms"} userAvatarUrl={viewer?.avatar_url ?? null} userName={viewer?.display_name ?? "Guest"}>
       {children}
     </AppShell>
   );

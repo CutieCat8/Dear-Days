@@ -5,16 +5,18 @@ import { usePathname } from "next/navigation";
 import { useMemo, useState, type ReactNode } from "react";
 
 import { ChevronRightIcon, DoorIcon, GridIcon, HomeIcon, LeafIcon, UserIcon, UsersIcon } from "@/components/shared/icons";
+import { ProfileAvatar } from "@/components/shared/profile-avatar";
 
 import { SceneHostContext } from "./scene-host";
 
 type AppShellProps = {
   children: ReactNode;
   galleryHref: string;
+  userAvatarUrl: string | null;
   userName: string;
 };
 
-export function AppShell({ children, galleryHref, userName }: AppShellProps) {
+export function AppShell({ children, galleryHref, userAvatarUrl, userName }: AppShellProps) {
   const pathname = usePathname();
   // A page (the room museum) can ask for a full-viewport scene layer between the shell's backgrounds and its text.
   const [host, setHost] = useState<HTMLElement | null>(null);
@@ -65,7 +67,7 @@ export function AppShell({ children, galleryHref, userName }: AppShellProps) {
           ))}
         </nav>
         <Link aria-current={pathname === "/profile" ? "page" : undefined} aria-label={`${userName}, open your profile`} className="group pointer-events-auto mt-auto -mx-1 flex items-center gap-2.5 rounded-xl border-t border-[var(--color-border-strong)]/50 px-3 py-3 transition-colors hover:bg-[var(--color-sage)]/45 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-green)]" href="/profile">
-          <span aria-hidden="true" className="font-display flex size-9 items-center justify-center rounded-full bg-[var(--color-green)] text-[0.95rem] text-white">{userName.charAt(0)}</span>
+          <ProfileAvatar className="size-9 text-[0.95rem]" name={userName} src={userAvatarUrl} />
           <div className="min-w-0 text-sm">
             <p className="truncate text-[0.85rem] font-semibold leading-tight text-[var(--color-ink)]">{userName}</p>
             <p className="truncate text-[0.68rem] text-[var(--color-muted)]">A collection of good days</p>
@@ -78,7 +80,7 @@ export function AppShell({ children, galleryHref, userName }: AppShellProps) {
       <div className={`min-w-0 pb-20 lg:pb-0 ${immersive ? "relative z-[2] lg:pointer-events-none" : ""}`}>
         <header className="flex h-12 items-center justify-between border-b border-[var(--color-border)] px-4 lg:hidden">
           <Link className="font-display text-xl text-[var(--color-green-deep)]" href="/">Dear Days</Link>
-          <span aria-hidden="true" className="flex size-8 items-center justify-center rounded-full bg-[var(--color-green)] text-xs text-white">{userName.charAt(0)}</span>
+          <ProfileAvatar className="size-8 text-xs" name={userName} src={userAvatarUrl} />
         </header>
         <main className={`w-full px-4 py-5 sm:px-6 lg:py-6 lg:pr-9 ${floating ? "lg:pl-4" : "lg:pl-9"}`}>{children}</main>
       </div>

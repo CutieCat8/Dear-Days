@@ -706,4 +706,55 @@ begin
   end loop;
 end $$;
 
+-- ---------------------------------------------------------------- 15. private profile media: paths, RLS and Storage ownership
+do $$ begin
+  perform t.eq((select public from storage.buckets where id = 'profile-media'), false, 'profile-media bucket is private');
+  perform t.eq((select file_size_limit from storage.buckets where id = 'profile-media'), 5242880::bigint, 'profile media limit is 5 MiB');
+  perform t.eq(has_column_privilege('authenticated', 'public.profiles', 'avatar_path', 'UPDATE'), true, 'owner may update avatar_path through RLS');
+  perform t.eq(has_column_privilege('anon', 'public.profiles', 'avatar_path', 'UPDATE'), false, 'anon cannot update avatar_path');
+end $$;
+
+begin;
+select t.as_user('owner') as u \gset
+do $$ begin
+  update public.profiles set
+    avatar_path = auth.uid()::text || '/avatar/a0000000-0000-4000-8000-000000000001.jpg',
+    cover_path = auth.uid()::text || '/cover/c0000000-0000-4000-8000-000000000001.webp'
+  where user_id = auth.uid();
+  insert into storage.objects (bucket_id, name) values
+    ('profile-media', auth.uid()::text || '/avatar/a0000000-0000-4000-8000-000000000001.jpg'),
+    ('profile-media', auth.uid()::text || '/cover/c0000000-0000-4000-8000-000000000001.webp');
+  perform t.eq((select count(*) from storage.objects where bucket_id = 'profile-media'), 2::bigint, 'owner writes avatar and cover under own folder');
+  perform t.throws(format(
+    'insert into storage.objects (bucket_id, name) values (''profile-media'', %L)',
+    current_setting('t.outsider') || '/avatar/stolen.jpg'
+  ), 'violates row-level security policy');
+end $$;
+commit;
+
+-- Partner shares a room with owner, so Storage read access matches profiles_select.
+begin;
+select t.as_user('partner') as u \gset
+do $$ begin
+  perform t.eq((select count(*) from public.profiles where user_id = current_setting('t.owner')::uuid), 1::bigint, 'partner may read owner profile');
+  perform t.eq((select count(*) from storage.objects where bucket_id = 'profile-media' and name like current_setting('t.owner') || '/%'), 2::bigint, 'partner may read owner profile media');
+  update storage.objects set metadata = '{"attempt":"overwrite"}' where bucket_id = 'profile-media' and name like current_setting('t.owner') || '/%';
+  perform t.eq((select count(*) from storage.objects where metadata is not null), 0::bigint, 'another reader cannot overwrite owner objects');
+  delete from storage.objects where bucket_id = 'profile-media' and name like current_setting('t.owner') || '/%';
+  perform t.eq((select count(*) from storage.objects where bucket_id = 'profile-media'), 2::bigint, 'another reader cannot delete owner objects');
+end $$;
+rollback;
+
+begin;
+select t.as_user('outsider') as u \gset
+do $$ begin
+  perform t.eq((select count(*) from public.profiles where user_id = current_setting('t.owner')::uuid), 0::bigint, 'outsider cannot read owner profile');
+  perform t.eq((select count(*) from storage.objects where bucket_id = 'profile-media' and name like current_setting('t.owner') || '/%'), 0::bigint, 'outsider cannot read owner profile media');
+  perform t.throws(format(
+    'insert into storage.objects (bucket_id, name) values (''profile-media'', %L)',
+    current_setting('t.owner') || '/avatar/overwrite.jpg'
+  ), 'violates row-level security policy');
+end $$;
+rollback;
+
 \echo 'ALL DATABASE TESTS PASSED'
