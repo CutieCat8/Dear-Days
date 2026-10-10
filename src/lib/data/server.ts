@@ -10,6 +10,7 @@ import type { RoomMemberView } from "@/lib/contracts/types";
 
 import { getMyAccount, listRoomMembers, type Account } from "./profile";
 import { SupabaseDataSource } from "./supabase-source";
+import { viewerFromResult } from "./viewer";
 
 /** Data source for Server Components / route handlers: the real database, or demo data when explicitly configured. */
 export const getDataSource = cache(async (): Promise<DearDaysDataSource> => {
@@ -24,8 +25,7 @@ const getServerClient = cache(() => createSupabaseServerClient());
 /** The signed-in person. In demo mode there is no sign-in and the fixture profile is returned. */
 export const getViewer = cache(async (): Promise<Account | null> => {
   if (dataMode() === "mock") return { ...mockCurrentProfile, email: null, bio: null, username: mockUsernames[mockCurrentProfile.id] ?? null };
-  const result = await getMyAccount(await getServerClient());
-  return result.ok ? result.data : null;
+  return viewerFromResult(await getMyAccount(await getServerClient()));
 });
 
 /** Members (public profile data) per room; demo mode returns the fixture members. */

@@ -25,10 +25,22 @@ export function profileFromRow(row: ProfileRow): Profile {
   return { id: row.user_id, display_name: row.display_name, avatar_url: row.avatar_url, created_at: row.created_at, updated_at: row.updated_at };
 }
 
+const ACCOUNT_COLUMNS = "user_id, display_name, avatar_url, bio, created_at, updated_at";
+let warnedAboutUsername = false;
+
 export async function getMyAccount(client: SupabaseClient<Database>): Promise<DataResult<Account>> {
   const user = await getSessionUser(client);
   if (!user) return fail("UNAUTHENTICATED", "Please sign in to continue.");
-  const { data, error } = await client.from("profiles").select("user_id, display_name, avatar_url, bio, username, created_at, updated_at").eq("user_id", user.id).maybeSingle();
+  let { data, error } = await client.from("profiles").select(`${ACCOUNT_COLUMNS}, username`).eq("user_id", user.id).maybeSingle();
+  if (error?.code === "42703" && /username/.test(error.message)) {
+    // Rollout skew only: the database has not received migration 20261010000400_friends yet (no profiles.username).
+    // Load the profile without it so the app keeps working; usernames and friends stay unavailable until it is applied.
+    if (!warnedAboutUsername) {
+      warnedAboutUsername = true;
+      console.warn("[dear-days] profiles.username is missing: apply supabase/migrations/20261010000400_friends.sql");
+    }
+    ({ data, error } = (await client.from("profiles").select(ACCOUNT_COLUMNS).eq("user_id", user.id).maybeSingle()) as unknown as { data: typeof data; error: typeof error });
+  }
   if (error) return failFrom(error);
   if (!data) return fail("NOT_FOUND", "We could not find your profile.");
   return ok({ ...profileFromRow(data), email: user.email, bio: data.bio ?? null, username: data.username ?? null });
