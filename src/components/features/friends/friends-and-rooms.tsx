@@ -133,11 +133,13 @@ export function FriendsAndRooms({ friends, viewerUsername, ownedRooms, initialCo
             )}
           </section>
 
-          {friends.incoming.length + friends.outgoing.length > 0 ? (
-            <section aria-labelledby="requests-title" className="panel p-5">
+          <section aria-labelledby="requests-title" className="panel p-5">
               <h2 className="title-md flex items-center gap-2" id="requests-title">
                 Friend requests <span className="rounded-full bg-[#f8e3e3] px-2 py-0.5 font-sans text-xs text-[#8a3a3a]">{friends.incoming.length}</span>
               </h2>
+              {friends.incoming.length + friends.outgoing.length === 0 ? (
+                <p className="mt-3 text-sm text-[var(--color-muted)]">No pending requests. When someone adds you, it will show up here.</p>
+              ) : (
               <ul className="mt-2 divide-y divide-[var(--color-border)]">
                 {[...friends.incoming, ...friends.outgoing].map((request) => (
                   <RequestRow
@@ -151,8 +153,8 @@ export function FriendsAndRooms({ friends, viewerUsername, ownedRooms, initialCo
                   />
                 ))}
               </ul>
-            </section>
-          ) : null}
+              )}
+          </section>
         </div>
 
         <div className="grid content-start gap-5">
@@ -299,6 +301,7 @@ function RequestRow({ request, demo, busy, onAccept, onDecline, onCancel }: { re
         <span className="flex items-center gap-2">
           <button className="btn btn-primary btn-sm min-w-20 disabled:opacity-60" disabled={demo || busy} onClick={onAccept} type="button">Accept</button>
           <button className="btn btn-secondary btn-sm min-w-20 disabled:opacity-60" disabled={demo || busy} onClick={onDecline} type="button">Decline</button>
+          <span aria-hidden="true" className="flex size-9 items-center justify-center text-[var(--color-muted)]"><MoreIcon className="size-5" /></span>
         </span>
       ) : (
         <span className="flex items-center gap-2">
