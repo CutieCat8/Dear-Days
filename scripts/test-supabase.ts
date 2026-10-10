@@ -15,6 +15,7 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 import type { MemoryInput, NewMediaUpload } from "../src/lib/contracts/types";
 import { listRoomMembers } from "../src/lib/data/profile";
+import { getSessionUser } from "../src/lib/data/session";
 import { SupabaseDataSource } from "../src/lib/data/supabase-source";
 
 const url = process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -430,6 +431,40 @@ async function main() {
     const left = await partner.source.listRooms();
     assert.ok(left.ok && left.data.length === 0);
     for (const path of paths2) assert.equal(await exists(partner.client, path), false);
+  });
+
+  await step("session check (getClaims): sign in, token refresh, sign out and switching account on one client", async () => {
+    const fresh = createClient(url as string, anon as string, { auth: { persistSession: false, autoRefreshToken: false } });
+    const source = new SupabaseDataSource(fresh);
+    assert.equal(await getSessionUser(fresh), null, "no session before signing in");
+    assert.ok(!(await source.listRooms()).ok);
+
+    const login = await fresh.auth.signInWithPassword({ email: `owner-${run}@example.com`, password: "test-password-1" });
+    assert.ok(!login.error);
+    assert.equal((await getSessionUser(fresh))?.id, owner.id, "the verified token names the signed-in user");
+    assert.equal((await source.getCurrentProfile() as { data: { id: string } }).data.id, owner.id);
+
+    const before = (await fresh.auth.getSession()).data.session?.access_token;
+    const refreshed = await fresh.auth.refreshSession();
+    assert.ok(!refreshed.error && refreshed.data.session);
+    assert.notEqual(refreshed.data.session.access_token, before, "refreshing issues a new access token");
+    assert.equal((await getSessionUser(fresh))?.id, owner.id, "the session check follows the refreshed token");
+    assert.ok((await source.listRooms()).ok, "data calls keep working after a refresh");
+
+    await fresh.auth.signOut();
+    assert.equal(await getSessionUser(fresh), null, "signing out is seen at once, nothing is cached");
+    const afterSignOut = await source.listRooms();
+    assert.ok(!afterSignOut.ok && afterSignOut.error.code === "UNAUTHENTICATED");
+
+    // another account on the same client: ids, profile and rooms are the new person's, never the previous one's
+    const switched = await fresh.auth.signInWithPassword({ email: `outsider-${run}@example.com`, password: "test-password-1" });
+    assert.ok(!switched.error);
+    assert.equal((await getSessionUser(fresh))?.id, outsider.id);
+    const profile = await source.getCurrentProfile();
+    assert.ok(profile.ok && profile.data.id === outsider.id);
+    const rooms = await source.listRooms();
+    assert.ok(rooms.ok && rooms.data.length === 0 && !rooms.data.some((room) => room.id === roomId), "the previous account's rooms are not shown");
+    await fresh.auth.signOut();
   });
 
   await step("signing out leaves no readable data", async () => {

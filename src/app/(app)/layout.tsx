@@ -4,8 +4,8 @@ import { AppShell } from "@/components/layout/app-shell";
 import { getDataSource, getViewer } from "@/lib/data/server";
 
 export default async function AppLayout({ children }: { children: ReactNode }) {
-  const [viewer, source] = await Promise.all([getViewer(), getDataSource()]);
-  const rooms = await source.listRooms();
+  const source = await getDataSource();
+  const [viewer, rooms] = await Promise.all([getViewer(), source.listRooms()]);
   const firstRoom = rooms.ok ? rooms.data[0] : undefined;
 
   return (

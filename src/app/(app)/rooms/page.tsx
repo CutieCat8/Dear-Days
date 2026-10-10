@@ -9,9 +9,12 @@ import { unwrap } from "@/lib/data/unwrap";
 export default async function MyRoomsPage() {
   const source = await getDataSource();
   const rooms = unwrap(await source.listRooms());
-  const counts = new Map<string, number>();
-  for (const room of rooms) counts.set(room.id, unwrap(await source.listMemories({ room_id: room.id, page: 1, page_size: 1 })).total);
-  const members = unwrap(await getRoomMembers(rooms.map((room) => room.id)));
+  const [countList, membersResult] = await Promise.all([
+    Promise.all(rooms.map(async (room) => [room.id, unwrap(await source.listMemories({ room_id: room.id, page: 1, page_size: 1 })).total] as const)),
+    getRoomMembers(rooms.map((room) => room.id)),
+  ]);
+  const counts = new Map<string, number>(countList);
+  const members = unwrap(membersResult);
 
   return (
     <div>

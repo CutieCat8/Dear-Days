@@ -10,6 +10,7 @@ import { listFriends, removeFriend, respondFriendRequest, sendFriendRequest } fr
 import { MEMORY_SELECT, mediaPaths, memoryFromRow, roomFromRow, tagFromRow, type MemoryRow, type RoomRow, type TagRow } from "./mappers";
 import { MEMORY_BUCKET, planMemorySave } from "./memory-payload";
 import { getCurrentProfile, listRoomMembers, updateMyAccount } from "./profile";
+import { getSessionUser } from "./session";
 import { fail, failFrom, ok } from "./result";
 
 /** Lifetime of a signed photo URL. Only the storage path is persisted; URLs are made on every read. */
@@ -42,9 +43,7 @@ export class SupabaseDataSource implements DearDaysDataSource {
   // -------------------------------------------------------------- session
 
   private async userId(): Promise<string | null> {
-    const { data, error } = await this.client.auth.getUser();
-    if (error || !data.user) return null;
-    return data.user.id;
+    return (await getSessionUser(this.client))?.id ?? null;
   }
 
   // -------------------------------------------------------------- profile
