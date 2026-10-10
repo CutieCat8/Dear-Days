@@ -87,6 +87,18 @@ Applied to `bnukioggopvrnppxkkkk` with `npx supabase db push` after `--dry-run` 
 
 Review of `20261010000400_friends.sql` and `20261011000000_room_frame_slots.sql`: dependencies are in order; constraints, RLS and RPC rules match `docs/CONTRACTS.md`. One change before applying: `set_frame_layout` now refuses a layout of more than 40 frames before doing any work (it used to check after inserting). One gap found *after* applying and fixed by a new migration `20261011000100_tighten_table_privileges.sql`: `authenticated` kept every table privilege (including TRUNCATE) on `room_frame_slots` and on the `room_summaries` view, because only `anon` and `public` had been revoked. Row Level Security already blocked writes, and TRUNCATE is not reachable through the API, but the privileges are now SELECT only. The new test section and the default-privilege mimic in `bootstrap.sql` catch this class of mistake.
 
+Review repeated before PR #14 merge: keep `20261011000100` as a separate forward-only migration because the preceding
+migrations have already been applied on hosted and must not be edited. Revoking all table privileges and granting back
+only `SELECT` preserves the app's reads from `room_summaries` and `room_frame_slots`. It does not revoke function
+`EXECUTE`; `set_frame_layout` remains an authenticated-only `SECURITY DEFINER` RPC, so members can still save layouts
+without direct table writes. The local privilege suite checks that authenticated users retain reads, lose table-wide
+writes and `TRUNCATE`, and that anon retains no table or RPC access.
+
+Hosted grant audit before PR #14 merge (non-mutating): anon reads of `room_summaries` and anon calls to
+`set_frame_layout` both returned `42501`; the owner read the retained room from `room_summaries` and its two frame-slot
+rows; an authenticated `set_frame_layout` call with a null layout reached the function's `VALIDATION_ERROR` (`22P02`)
+before its delete/write section; and the complete frame rows, including timestamps, were identical before and after.
+
 Checked on hosted after the pushes:
 
 | Check | Result |
@@ -99,11 +111,22 @@ Checked on hosted after the pushes:
 | Frame slots in the UI (test room "R1 frames check (test)", two test memories) | "Arrange frames", chose the other photo for a frame: the two frames swapped, rows `L2` = memory A, `R4` = memory B in `room_frame_slots`; after a reload the same arrangement is shown |
 | Friend requests and frame rules with the two real hosted accounts, in one transaction that was rolled back (nothing written) | request: pending; asking twice `CONFLICT`; yourself `VALIDATION_ERROR`; unknown username `NOT_FOUND`; the requester cannot accept; a stranger sees no friendships or profiles and gets `NOT_FOUND` on answer and remove; the addressee accepts; already friends `CONFLICT`; friends see no rooms or memories; either person unfriends and the profile is hidden again; direct INSERT/UPDATE/TRUNCATE on `friendships` and INSERT/TRUNCATE on `room_frame_slots` denied; a non-member gets `FORBIDDEN` on `set_frame_layout` and reads no slots; the owner saves, swaps and reads back the arrangement; a duplicate memory, a text-only memory and an oversized layout are refused and keep the previous arrangement; `anon` cannot call either RPC |
 
-The test room and its two memories and two frame rows remain on hosted until the owner says they can be deleted.
+The room `R1 frames check (test)` is intentionally retained on hosted as demo/test data. Its two photo memories,
+two private Storage objects and two frame-slot rows are part of that retained sample and must not be cleaned up as
+orphaned test data. A read-only audit on 2026-10-10 found exactly one room with that name, confirmed the signed-in
+demo account is its owner, and confirmed the two database storage paths exactly match the two objects under the room
+prefix.
 
 **Not checked on hosted with real separate sign-ins:** a second account joining and using a room (member and outsider browsing, the member arranging frames in the UI, the outsider opening the room by URL), sending and accepting a friend request through the Friends & Rooms page, and the e-mail confirmation round trip. The rules were exercised with the two real accounts in the rolled-back transaction above, and with four accounts on the local stack (`test:integration`), not through two browser sessions on hosted.
 
 **Known limits of the friends design (not changed here):** a pending request lets the sender read the whole profile row of the person asked (display name, avatar, bio); `send_friend_request` tells whether a username exists (`NOT_FOUND`) and has no rate limit, so usernames can be enumerated; declining deletes the request so it can be sent again.
+
+### Follow-up backlog (not part of PR #14)
+
+- Limit which profile fields a sender of a pending friend request can read.
+- Prevent username enumeration and add rate limiting to friend-request lookup/submission.
+- Run hosted multi-account browser flows, including the complete e-mail confirmation round trip.
+- Remove the legacy username fallback after every supported schema includes `profiles.username`.
 
 ## Not done
 Multi-account browser flows on hosted and the e-mail round-trip (above), avatar upload (the column exists, no upload UI), rate limiting of invite-code guesses, mobile 3D loading (backlog in `docs/ROOM-3D-HANDOFF.md`), deployment.
