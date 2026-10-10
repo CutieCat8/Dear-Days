@@ -11,6 +11,9 @@ import { loadHomeOverview } from "@/lib/data/overview";
 import { getDataSource, getViewer } from "@/lib/data/server";
 import { unwrap } from "@/lib/data/unwrap";
 
+/** The sidebar card shows only a few places; the "places visited" stat still counts all of them. */
+const RECENT_PLACES_LIMIT = 5;
+
 export default async function HomePage() {
   const [viewer, source] = await Promise.all([getViewer(), getDataSource()]);
   const { rooms, memoryCounts, recent, places, people, moodCounts, totalMemories } = unwrap(await loadHomeOverview(source));
@@ -122,7 +125,7 @@ export default async function HomePage() {
         <section aria-labelledby="places-heading" className="panel p-4">
           <h2 className="title-md" id="places-heading">Recent places</h2>
           <ul className="mt-2.5 grid gap-2.5">
-            {places.map((place) => (
+            {places.slice(0, RECENT_PLACES_LIMIT).map((place) => (
               <li className="flex items-center gap-2.5" key={place.id}>
                 <span className="flex size-8 items-center justify-center rounded-lg bg-[var(--color-sage)] text-[var(--color-green)]"><PinIcon className="size-4" /></span>
                 <span className="text-[0.8rem] font-medium text-[var(--color-green-deep)]">{place.label}</span>

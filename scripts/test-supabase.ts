@@ -14,7 +14,8 @@ import assert from "node:assert/strict";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 import type { MemoryInput, NewMediaUpload } from "../src/lib/contracts/types";
-import { listRoomMembers } from "../src/lib/data/profile";
+import { getMyAccount, listRoomMembers, updateMyAccount } from "../src/lib/data/profile";
+import { getSessionUser } from "../src/lib/data/session";
 import { SupabaseDataSource } from "../src/lib/data/supabase-source";
 
 const url = process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -374,6 +375,46 @@ async function main() {
     assert.ok((await owner.source.deleteRoom(mine.data.id)).ok);
   });
 
+  await step("frame slots: members arrange photos, outsiders and text memories are refused, a deleted memory frees its frame", async () => {
+    const mine = await owner.source.createRoom({ name: "Frames room", life_period: "2027", description: null, theme: "sunrise" });
+    assert.ok(mine.ok);
+    const room = mine.data.id;
+    assert.ok((await partner.source.joinRoom(mine.data.invite_code)).ok);
+    const a = withPhotos(1);
+    const b = withPhotos(1);
+    const first = await owner.source.createMemory(room, a.input, a.uploads);
+    const second = await partner.source.createMemory(room, b.input, b.uploads);
+    const note = await owner.source.createMemory(room, memoryInput({ tags: [] }), []);
+    assert.ok(first.ok && second.ok && note.ok);
+
+    const saved = await owner.source.setFrameLayout(room, { left1: first.data.id, right2: second.data.id });
+    assert.ok(saved.ok, JSON.stringify(saved));
+    const swapped = await partner.source.setFrameLayout(room, { left1: second.data.id, right2: first.data.id });
+    assert.ok(swapped.ok, "a member can rearrange, swapping two photos in one save");
+    const listed = await partner.source.listFrameAssignments(room);
+    assert.ok(listed.ok && listed.data.find((x) => x.slot_id === "left1")?.memory_id === second.data.id);
+
+    const duplicate = await owner.source.setFrameLayout(room, { a: first.data.id, b: first.data.id });
+    assert.ok(!duplicate.ok && duplicate.error.code === "CONFLICT", "one memory in two frames is refused");
+    const textOnly = await owner.source.setFrameLayout(room, { a: note.data.id });
+    assert.ok(!textOnly.ok && textOnly.error.code === "VALIDATION_ERROR", "a memory without photos cannot hang in a frame");
+    assert.equal((await owner.source.listFrameAssignments(room) as { data: unknown[] }).data.length, 2, "a refused save keeps the previous arrangement");
+
+    const stranger = await outsider.source.setFrameLayout(room, {});
+    assert.ok(!stranger.ok && stranger.error.code === "FORBIDDEN");
+    const strangerRead = await outsider.source.listFrameAssignments(room);
+    assert.ok(strangerRead.ok && strangerRead.data.length === 0, "an outsider reads no arrangement");
+    const anonymous = await anonSource.setFrameLayout(room, {});
+    assert.ok(!anonymous.ok && anonymous.error.code === "UNAUTHENTICATED");
+    const direct = await owner.client.from("room_frame_slots").insert({ room_id: room, slot_id: "zz", memory_id: first.data.id });
+    assert.ok(direct.error, "no direct writes to room_frame_slots");
+
+    assert.ok((await partner.source.deleteMemory(room, second.data.id)).ok);
+    const afterDelete = await owner.source.listFrameAssignments(room);
+    assert.ok(afterDelete.ok && afterDelete.data.every((x) => x.memory_id !== second.data.id), "deleting the memory frees its frame");
+    assert.ok((await owner.source.deleteRoom(room)).ok);
+  });
+
   await step("only the owner deletes the room; photos of both members are removed with it", async () => {
     const mine = withPhotos(1);
     const a = await owner.source.createMemory(roomId, mine.input, mine.uploads);
@@ -390,6 +431,132 @@ async function main() {
     const left = await partner.source.listRooms();
     assert.ok(left.ok && left.data.length === 0);
     for (const path of paths2) assert.equal(await exists(partner.client, path), false);
+  });
+
+  await step("friends: request, accept, privacy of requests and profiles, no room access, usernames", async () => {
+    const ownerAccount = await getMyAccount(owner.client);
+    const thirdAccount = await getMyAccount(third.client);
+    assert.ok(ownerAccount.ok && thirdAccount.ok && ownerAccount.data.username && thirdAccount.data.username);
+    const ownerName = ownerAccount.data.username as string;
+    const thirdName = thirdAccount.data.username as string;
+    assert.match(ownerName, /^[a-z0-9][a-z0-9._]{1,28}[a-z0-9]$/, "sign-up gave a valid username");
+
+    // before any request nobody can read the other profile
+    const hiddenBefore = await owner.client.from("profiles").select("user_id").eq("user_id", third.id);
+    assert.equal(hiddenBefore.data?.length, 0, "a stranger's profile is not readable");
+
+    const unknown = await third.source.sendFriendRequest("nobody.such.user");
+    assert.ok(!unknown.ok && unknown.error.code === "NOT_FOUND");
+    const self = await third.source.sendFriendRequest(thirdName);
+    assert.ok(!self.ok && self.error.code === "VALIDATION_ERROR");
+    const anonymous = await anonSource.sendFriendRequest(ownerName);
+    assert.ok(!anonymous.ok && anonymous.error.code === "UNAUTHENTICATED");
+
+    const sent = await third.source.sendFriendRequest(`  @${ownerName.toUpperCase()} `);
+    assert.ok(sent.ok && sent.data.status === "pending", JSON.stringify(sent));
+    const again = await third.source.sendFriendRequest(ownerName);
+    assert.ok(!again.ok && again.error.code === "CONFLICT", "asking twice");
+
+    const incoming = await owner.source.listFriends();
+    assert.ok(incoming.ok && incoming.data.incoming.length === 1 && incoming.data.friends.length === 0);
+    assert.equal(incoming.data.incoming[0].username, thirdName);
+    assert.ok(!("email" in incoming.data.incoming[0]), "no e-mail in a friend view");
+    const outgoing = await third.source.listFriends();
+    assert.ok(outgoing.ok && outgoing.data.outgoing.length === 1);
+
+    // only the two people see the request; only the addressee answers it
+    const strangerView = await outsider.source.listFriends();
+    assert.ok(strangerView.ok && strangerView.data.incoming.length + strangerView.data.outgoing.length + strangerView.data.friends.length === 0);
+    const id = sent.data.friendship_id;
+    assert.ok(!(await outsider.source.respondFriendRequest(id, true)).ok, "a third person cannot answer");
+    const byRequester = await third.source.respondFriendRequest(id, true);
+    assert.ok(!byRequester.ok && byRequester.error.code === "NOT_FOUND", "the requester cannot accept their own request");
+    const strangerRemove = await outsider.source.removeFriend(id);
+    assert.ok(!strangerRemove.ok && strangerRemove.error.code === "NOT_FOUND");
+    const direct = await third.client.from("friendships").update({ status: "accepted", responded_at: new Date().toISOString() }).eq("id", id);
+    assert.ok(direct.error, "no direct UPDATE on friendships");
+    const directInsert = await outsider.client.from("friendships").insert({ requester_id: outsider.id, addressee_id: owner.id });
+    assert.ok(directInsert.error, "no direct INSERT on friendships");
+
+    // a pending request lets the two read each other's name, nobody else
+    const seen = await owner.client.from("profiles").select("user_id, display_name").eq("user_id", third.id);
+    assert.equal(seen.data?.length, 1);
+    const notSeen = await outsider.client.from("profiles").select("user_id").eq("user_id", third.id);
+    assert.equal(notSeen.data?.length, 0);
+
+    const accepted = await owner.source.respondFriendRequest(id, true);
+    assert.ok(accepted.ok);
+    const friendsNow = await third.source.listFriends();
+    assert.ok(friendsNow.ok && friendsNow.data.friends.length === 1 && friendsNow.data.friends[0].user_id === owner.id);
+    const conflict = await owner.source.sendFriendRequest(thirdName);
+    assert.ok(!conflict.ok && conflict.error.code === "CONFLICT", "already friends");
+
+    // being friends gives no access to rooms or memories
+    const privateRoom = await owner.source.createRoom({ name: "Friends only see the name", life_period: "2027", description: null, theme: "night" });
+    assert.ok(privateRoom.ok);
+    const peek = await third.source.getRoom(privateRoom.data.id);
+    assert.ok(!peek.ok && peek.error.code === "NOT_FOUND");
+    assert.equal((await third.source.listRooms() as { data: { id: string }[] }).data.some((room) => room.id === privateRoom.data.id), false);
+    assert.ok((await owner.source.deleteRoom(privateRoom.data.id)).ok);
+
+    // usernames: unique, validated, changed only by the owner of the profile
+    const taken = await updateMyAccount(third.client, { display_name: "third", username: ownerName });
+    assert.ok(!taken.ok && taken.error.code === "CONFLICT");
+    const invalid = await updateMyAccount(third.client, { display_name: "third", username: "A B" });
+    assert.ok(!invalid.ok && invalid.error.code === "VALIDATION_ERROR");
+    const renamed = await updateMyAccount(third.client, { display_name: "third", username: `t.${run}` });
+    assert.ok(renamed.ok && renamed.data.username === `t.${run}`);
+    const hijack = await outsider.client.from("profiles").update({ username: "hijacked.name" }).eq("user_id", third.id).select("user_id");
+    assert.ok(!hijack.error && (hijack.data?.length ?? 0) === 0, "nobody else can change a username");
+
+    // unfriending: either person; afterwards the profiles are hidden again
+    const unfriend = await third.source.removeFriend(id);
+    assert.ok(unfriend.ok);
+    const afterwards = await owner.client.from("profiles").select("user_id").eq("user_id", third.id);
+    assert.equal(afterwards.data?.length, 0, "profile hidden again after unfriending");
+    const gone = await owner.source.removeFriend(id);
+    assert.ok(!gone.ok && gone.error.code === "NOT_FOUND");
+
+    // declining deletes the request, and a new one can follow
+    const second = await third.source.sendFriendRequest(ownerName);
+    assert.ok(second.ok);
+    assert.ok((await owner.source.respondFriendRequest(second.data.friendship_id, false)).ok);
+    const left = await owner.source.listFriends();
+    assert.ok(left.ok && left.data.incoming.length === 0 && left.data.friends.length === 0);
+  });
+
+  await step("session check (getClaims): sign in, token refresh, sign out and switching account on one client", async () => {
+    const fresh = createClient(url as string, anon as string, { auth: { persistSession: false, autoRefreshToken: false } });
+    const source = new SupabaseDataSource(fresh);
+    assert.equal(await getSessionUser(fresh), null, "no session before signing in");
+    assert.ok(!(await source.listRooms()).ok);
+
+    const login = await fresh.auth.signInWithPassword({ email: `owner-${run}@example.com`, password: "test-password-1" });
+    assert.ok(!login.error);
+    assert.equal((await getSessionUser(fresh))?.id, owner.id, "the verified token names the signed-in user");
+    assert.equal((await source.getCurrentProfile() as { data: { id: string } }).data.id, owner.id);
+
+    const before = (await fresh.auth.getSession()).data.session?.access_token;
+    const refreshed = await fresh.auth.refreshSession();
+    assert.ok(!refreshed.error && refreshed.data.session);
+    assert.notEqual(refreshed.data.session.access_token, before, "refreshing issues a new access token");
+    assert.equal((await getSessionUser(fresh))?.id, owner.id, "the session check follows the refreshed token");
+    assert.ok((await source.listRooms()).ok, "data calls keep working after a refresh");
+
+    await fresh.auth.signOut();
+    assert.equal(await getSessionUser(fresh), null, "signing out is seen at once, nothing is cached");
+    const afterSignOut = await source.listRooms();
+    assert.ok(!afterSignOut.ok && afterSignOut.error.code === "UNAUTHENTICATED");
+
+    // another account on the same client: ids, profile and rooms are the new person's, never the previous one's
+    const switched = await fresh.auth.signInWithPassword({ email: `outsider-${run}@example.com`, password: "test-password-1" });
+    assert.ok(!switched.error);
+    assert.equal((await getSessionUser(fresh))?.id, outsider.id);
+    const profile = await source.getCurrentProfile();
+    assert.ok(profile.ok && profile.data.id === outsider.id);
+    const rooms = await source.listRooms();
+    assert.ok(rooms.ok && rooms.data.length === 0 && !rooms.data.some((room) => room.id === roomId), "the previous account's rooms are not shown");
+    await fresh.auth.signOut();
   });
 
   await step("signing out leaves no readable data", async () => {

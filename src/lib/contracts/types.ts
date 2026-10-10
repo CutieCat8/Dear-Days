@@ -48,6 +48,9 @@ export type NewMediaMetadata = z.infer<typeof newMediaMetadataSchema>;
 export type MemoryListParams = z.input<typeof memoryListParamsSchema>;
 export type AppErrorCode = z.infer<typeof appErrorCodeSchema>;
 
+/** A photo memory the room members pinned to one 3D picture frame (`slot_id` is the frame's id in the room layout). */
+export type FrameAssignment = { slot_id: string; memory_id: string };
+
 export type NewMediaUpload = NewMediaMetadata & { file: File };
 
 export type DataError = {

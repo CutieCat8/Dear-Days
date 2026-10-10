@@ -2,15 +2,18 @@ import Image from "next/image";
 import Link from "next/link";
 
 import { CalendarStack } from "@/components/features/gallery/calendar-stack";
+import { FilterPanel } from "@/components/features/gallery/filter-panel";
 import { PhotoViewer } from "@/components/features/gallery/photo-viewer";
+import { PlaceFilter } from "@/components/features/gallery/place-filter";
 import { Breadcrumbs } from "@/components/shared/breadcrumbs";
-import { ArrowRightIcon, BookIcon, CalendarIcon, EditIcon, LockIcon, PinIcon, PlusIcon, SearchIcon, UsersIcon } from "@/components/shared/icons";
-import { MoodBadge } from "@/components/shared/mood-badge";
+import { ArrowRightIcon, BookIcon, CalendarIcon, EditIcon, GridIcon, LockIcon, PinIcon, PlusIcon, SearchIcon, UsersIcon } from "@/components/shared/icons";
+import { MoodBadge, MOOD_TEXT_COLORS } from "@/components/shared/mood-badge";
+import { Dropdown } from "@/components/ui/dropdown";
 import { MOOD_LABELS, MOODS } from "@/lib/contracts/constants";
 import type { Memory, Tag } from "@/lib/contracts/types";
 import { getDataSource, getRoomMembers, getViewer } from "@/lib/data/server";
 import { unwrap } from "@/lib/data/unwrap";
-import { buildGalleryHref, firstGalleryValue, NO_MOOD_VALUE, parseGalleryFilters, type GallerySearchParams } from "@/lib/gallery/filters";
+import { buildGalleryHref, firstGalleryValue, parseGalleryFilters, type GallerySearchParams } from "@/lib/gallery/filters";
 
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -60,20 +63,15 @@ export default async function GalleryPage({ params, searchParams }: GalleryPageP
   const pageResult = unwrap(await source.listMemories({
     room_id: room.id,
     query: filters.query || undefined,
-    date_from: filters.dateFrom || undefined,
-    date_to: filters.dateTo || undefined,
     moods: filters.moods.length ? filters.moods : undefined,
     person_tag_ids: filters.personTagIds.length ? filters.personTagIds : undefined,
     place_tag_ids: filters.placeTagIds.length ? filters.placeTagIds : undefined,
-    sort: filters.sort,
     page: filters.page,
     page_size: 50,
   }));
   const filtered = pageResult.items;
-  const selectedMoodValues = new Set(filters.moods.map((mood) => mood ?? NO_MOOD_VALUE));
   const hasFilters = Boolean(
-    filters.query || filters.dateFrom || filters.dateTo || filters.moods.length ||
-    filters.personTagIds.length || filters.placeTagIds.length || filters.sort !== "memory_date_desc",
+    filters.query || filters.moods.length || filters.personTagIds.length || filters.placeTagIds.length,
   );
 
   const byDate = new Map<string, Memory[]>();
@@ -110,7 +108,7 @@ export default async function GalleryPage({ params, searchParams }: GalleryPageP
         <p className="mt-1.5 text-sm text-[var(--color-muted)]">All the memories from this room, day by day.</p>
       </header>
 
-      <section aria-label="Gallery filters" className="panel mt-5 p-4">
+      <FilterPanel activeCount={filters.personTagIds.length + filters.placeTagIds.length + filters.moods.length + (filters.query ? 1 : 0)} defaultOpen={hasFilters}>
         <form action={`/rooms/${room.id}/gallery`} className="grid gap-4" method="get" role="search">
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <div>
@@ -121,50 +119,31 @@ export default async function GalleryPage({ params, searchParams }: GalleryPageP
               </div>
             </div>
 
-            <fieldset>
-              <legend className="field-label">Date range</legend>
-              <div className="grid grid-cols-2 gap-2">
-                <label className="text-xs text-[var(--color-muted)]">From<input className="field-input mt-1" defaultValue={filters.dateFrom} name="date_from" type="date" /></label>
-                <label className="text-xs text-[var(--color-muted)]">To<input className="field-input mt-1" defaultValue={filters.dateTo} name="date_to" type="date" /></label>
-              </div>
-            </fieldset>
-
-            <fieldset>
-              <legend className="field-label">Mood</legend>
-              <div className="grid grid-cols-2 gap-x-3 gap-y-1.5">
-                {MOODS.map((value) => (
-                  <label className="flex items-center gap-2 text-xs text-[var(--color-ink)]" key={value}>
-                    <input className="accent-[var(--color-green)]" defaultChecked={selectedMoodValues.has(value)} name="mood" type="checkbox" value={value} />
-                    {MOOD_LABELS[value]}
-                  </label>
-                ))}
-                <label className="flex items-center gap-2 text-xs text-[var(--color-ink)]">
-                  <input className="accent-[var(--color-green)]" defaultChecked={selectedMoodValues.has(NO_MOOD_VALUE)} name="mood" type="checkbox" value={NO_MOOD_VALUE} />
-                  No mood
-                </label>
-              </div>
-            </fieldset>
+            <div>
+              <label className="field-label" htmlFor="gallery-mood">Mood</label>
+              <Dropdown
+                defaultValue={filters.moods.length === 1 ? (filters.moods[0] ?? "") : ""}
+                icon={<GridIcon />}
+                id="gallery-mood"
+                name="mood"
+                options={[
+                  { value: "", label: "All", separatorAfter: true },
+                  ...MOODS.map((value) => ({ value, label: MOOD_LABELS[value], color: MOOD_TEXT_COLORS[value] })),
+                ]}
+                variant="bare"
+              />
+            </div>
 
             <TagFilterGroup label="People" name="person_tag_ids" selectedIds={filters.personTagIds} tags={availableTags.filter((tag) => tag.type === "person")} />
-            <TagFilterGroup label="Places" name="place_tag_ids" selectedIds={filters.placeTagIds} tags={availableTags.filter((tag) => tag.type === "place")} />
-
-            <div>
-              <label className="field-label" htmlFor="gallery-sort">Sort by</label>
-              <select className="field-input" defaultValue={filters.sort} id="gallery-sort" name="sort">
-                <option value="memory_date_desc">Newest memory</option>
-                <option value="memory_date_asc">Oldest memory</option>
-                <option value="updated_at_desc">Recently updated</option>
-              </select>
-            </div>
+            <PlaceFilter name="place_tag_ids" places={availableTags.filter((tag) => tag.type === "place").map((tag) => ({ id: tag.id, label: tag.label }))} selectedIds={filters.placeTagIds} />
           </div>
 
-          {filters.dateRangeInvalid ? <p className="text-xs text-[#8a3a3a]" role="alert">The start date must be on or before the end date. The date filter was cleared.</p> : null}
-          <div className="flex flex-wrap items-center gap-3">
-            <button className="btn btn-primary" type="submit">Apply filters</button>
+          <div className="flex flex-wrap items-center justify-end gap-3">
             {hasFilters ? <Link className="text-sm font-medium text-[var(--color-green)] hover:underline" href={`/rooms/${room.id}/gallery`}>Clear filters</Link> : null}
+            <button className="btn btn-primary" type="submit">Apply filters</button>
           </div>
         </form>
-      </section>
+      </FilterPanel>
 
       <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-xs text-[var(--color-muted)]">
         <span aria-live="polite">{pageResult.total} {pageResult.total === 1 ? "memory" : "memories"}</span>

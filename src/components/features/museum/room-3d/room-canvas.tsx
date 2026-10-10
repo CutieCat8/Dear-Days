@@ -14,10 +14,12 @@ import { Lighting } from "./lighting";
 import { createMaterials, MaterialsContext } from "./materials";
 import { OutsideFoliage } from "./plants";
 import { RoomShell } from "./room-shell";
-import { assignMemories } from "./slots";
+import { assignMemories, type FramePins } from "./slots";
 
 export type RoomCanvasProps = {
   memories: Memory[];
+  /** Photos the members pinned to specific frames; other frames fill automatically. */
+  pins: FramePins;
   selectedId: string | null;
   onSelect: (id: string) => void;
   /** Filled with the camera controls (focus wall, back, reset, zoom) once the canvas is ready. */
@@ -58,9 +60,9 @@ function SelectionLight({ frames, diaries, selectedId }: { frames: ReturnType<ty
   return <pointLight color="#ffd9a0" decay={2} distance={2} intensity={selectedId ? 1.5 : 0} position={position} />;
 }
 
-const Scene = memo(function Scene({ memories, selectedId, onSelect, onImageError }: Omit<RoomCanvasProps, "apiRef" | "onStateChange" | "getLayout" | "onReady">) {
+const Scene = memo(function Scene({ memories, pins, selectedId, onSelect, onImageError }: Omit<RoomCanvasProps, "apiRef" | "onStateChange" | "getLayout" | "onReady">) {
   const materials = useMemo(() => createMaterials(), []);
-  const { frames, diaries } = useMemo(() => assignMemories(memories), [memories]);
+  const { frames, diaries } = useMemo(() => assignMemories(memories, pins), [memories, pins]);
 
   return (
     <MaterialsContext.Provider value={materials}>
@@ -91,7 +93,7 @@ const INITIAL_CAMERA = {
   ] as [number, number, number],
 };
 
-export default function RoomCanvas({ memories, selectedId, onSelect, apiRef, onStateChange, getLayout, onReady, onImageError }: RoomCanvasProps) {
+export default function RoomCanvas({ memories, pins, selectedId, onSelect, apiRef, onStateChange, getLayout, onReady, onImageError }: RoomCanvasProps) {
   return (
     <Canvas
       camera={INITIAL_CAMERA}
@@ -106,7 +108,7 @@ export default function RoomCanvas({ memories, selectedId, onSelect, apiRef, onS
       shadows="percentage"
     >
       <CameraController apiRef={apiRef} getLayout={getLayout} onStateChange={onStateChange}>
-        <Scene memories={memories} onImageError={onImageError} onSelect={onSelect} selectedId={selectedId} />
+        <Scene memories={memories} pins={pins} onImageError={onImageError} onSelect={onSelect} selectedId={selectedId} />
         <Ready onReady={onReady} />
       </CameraController>
     </Canvas>

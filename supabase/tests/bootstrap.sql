@@ -45,6 +45,11 @@ create or replace function storage.foldername(name text) returns text[] language
 $$;
 
 grant usage on schema public, auth, storage, extensions to anon, authenticated, service_role;
+
+-- What a real Supabase project does for every object created in `public`: all privileges go to the API roles, and the
+-- migrations have to revoke what must not stay. Without this the tests could not notice a missing REVOKE.
+alter default privileges in schema public grant all on tables to anon, authenticated, service_role;
+alter default privileges in schema public grant all on functions to anon, authenticated, service_role;
 grant select, insert, update, delete on storage.objects to authenticated;
 grant select on storage.buckets to authenticated;
 grant execute on function auth.uid(), storage.foldername(text) to anon, authenticated;

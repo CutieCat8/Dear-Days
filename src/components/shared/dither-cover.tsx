@@ -4,8 +4,8 @@ import { useEffect, useRef, useState } from "react";
 
 import DitherImage from "@/components/ui/dither-image";
 
-// Brand ramp (deep green -> cream) so the dither matches the app instead of black/white.
-const COVER_PALETTE = ["#21463a", "#f5f2e9"];
+// Black-and-white ramp (darker and higher contrast than the old green -> cream ramp).
+const COVER_PALETTE = ["#000000", "#ffffff"];
 
 type DitherCoverProps = {
   src: string;

@@ -46,14 +46,14 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
           <div className="min-w-0 pb-1">
             <h1 className="title-xl">{name}</h1>
             {viewer.email ? <p className="truncate text-sm text-[var(--color-muted)]">{viewer.email}</p> : null}
-            <p className="mt-1 max-w-md text-xs leading-5 text-[var(--color-muted)]">{viewer.bio || "Collecting ordinary, lovely days — one photo at a time."}</p>
+            <p className="mt-1 max-w-md text-sm leading-6 text-[var(--color-muted)]">{viewer.bio || "Collecting ordinary, lovely days — one photo at a time."}</p>
           </div>
           {overview.ok ? (
             <dl className="flex gap-6 pb-1 sm:ml-auto">
               {[{ label: "memories", value: overview.data.memoryCount }, { label: "rooms", value: overview.data.roomCount }].map(({ label, value }) => (
                 <div className="flex flex-col-reverse items-center" key={label}>
                   <dt className="text-[0.7rem] text-[var(--color-muted)]">{label}</dt>
-                  <dd className="font-display text-xl leading-tight text-[var(--color-green-deep)]">{value}</dd>
+                  <dd className="font-display text-base leading-tight text-[var(--color-green-deep)]">{value}</dd>
                 </div>
               ))}
             </dl>
@@ -78,7 +78,7 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
               {PRIVACY_POINTS.map(({ icon: Icon, title, text }) => (
                 <li className="flex gap-3" key={title}>
                   <span aria-hidden="true" className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-[var(--color-sage)]/70 text-[var(--color-green-deep)]"><Icon className="size-5" /></span>
-                  <span><b className="block text-[0.85rem] text-[var(--color-green-deep)]">{title}</b><span className="text-xs text-[var(--color-muted)]">{text}</span></span>
+                  <span><b className="block text-sm font-semibold text-[var(--color-green-deep)]">{title}</b><span className="text-xs leading-5 text-[var(--color-muted)]">{text}</span></span>
                 </li>
               ))}
             </ul>

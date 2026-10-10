@@ -123,6 +123,26 @@ isOneToOne: false
                   Relationships: [
                     
                   ]
+                },"room_frame_slots": {
+                  Row: {
+                    "memory_id": string,"room_id": string,"slot_id": string,"updated_at": string,"updated_by": string | null
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "memory_id": string,"room_id": string,"slot_id": string,"updated_at"?: string,"updated_by"?: string | null
+                  }
+                  Update: {
+                    "memory_id"?: string,"room_id"?: string,"slot_id"?: string,"updated_at"?: string,"updated_by"?: string | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "room_frame_slots_memory_fkey"
+      columns: ["memory_id","room_id"]
+isOneToOne: false
+      referencedRelation: "memories"
+      referencedColumns: ["id","room_id"]
+    }
+                  ]
                 },"room_members": {
                   Row: {
                     "joined_at": string,"role": string,"room_id": string,"user_id": string
@@ -227,11 +247,11 @@ isOneToOne: false
         isOneToOne: true
         isSetofReturn: false
       } },
-"has_friendship_with":
-{ Args: { "p_user_id": string }; Returns: boolean
-                           },
 "generate_invite_code":
 { Args: Record<PropertyKey, never>; Returns: string
+                           },
+"has_friendship_with":
+{ Args: { "p_user_id": string }; Returns: boolean
                            },
 "is_room_member":
 { Args: { "p_room_id": string }; Returns: boolean
@@ -264,6 +284,9 @@ isOneToOne: false
                            },
 "send_friend_request":
 { Args: { "p_username": string }; Returns: Json
+                           },
+"set_frame_layout":
+{ Args: { "p_layout": Json,"p_room_id": string }; Returns: undefined
                            },
 "shares_room_with":
 { Args: { "p_user_id": string }; Returns: boolean

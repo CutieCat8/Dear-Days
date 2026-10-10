@@ -1,5 +1,6 @@
 import type {
   DataResult,
+  FrameAssignment,
   FriendsOverview,
   Memory,
   MemoryInput,
@@ -55,6 +56,14 @@ export interface DearDaysDataSource {
   createMemory(roomId: string, input: MemoryInput, uploads: NewMediaUpload[]): Promise<DataResult<Memory>>;
   updateMemory(roomId: string, memoryId: string, input: MemoryInput, uploads: NewMediaUpload[]): Promise<DataResult<Memory>>;
   deleteMemory(roomId: string, memoryId: string): Promise<DataResult<{ id: string }>>;
+
+  /** Frames the members pinned a photo memory to. Frames not listed here are filled automatically. */
+  listFrameAssignments(roomId: string): Promise<DataResult<FrameAssignment[]>>;
+  /**
+   * Any member. Saves the whole arrangement ({ frame id: photo memory id }) in one step, replacing the previous one.
+   * An empty object gives every frame back to the automatic layout. Memories must be photo memories of this room.
+   */
+  setFrameLayout(roomId: string, layout: Record<string, string>): Promise<DataResult<FrameAssignment[]>>;
 
   listTags(roomId: string): Promise<DataResult<Tag[]>>;
   upsertTags(roomId: string, tags: TagInput[]): Promise<DataResult<Tag[]>>;

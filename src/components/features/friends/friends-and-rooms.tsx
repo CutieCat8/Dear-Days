@@ -19,6 +19,8 @@ type FriendsAndRoomsProps = {
   ownedRooms: Room[];
   initialCode: string;
   demo: boolean;
+  /** Set when the friends list could not be loaded; shown instead of the friends actions' messages. */
+  friendsNotice?: string;
 };
 
 // Same pictures as the room form's live preview (one render per theme).
@@ -43,7 +45,7 @@ function Notice({ message }: { message: Message }) {
   return <p className={message.kind === "ok" ? OK_BOX : ERROR_BOX} role={message.kind === "ok" ? "status" : "alert"}>{message.text}</p>;
 }
 
-export function FriendsAndRooms({ friends, viewerUsername, ownedRooms, initialCode, demo }: FriendsAndRoomsProps) {
+export function FriendsAndRooms({ friends, viewerUsername, ownedRooms, initialCode, demo, friendsNotice }: FriendsAndRoomsProps) {
   const router = useRouter();
   const openRooms = ownedRooms.filter((room) => room.member_count < ROOM_MAX_MEMBERS);
   const [roomId, setRoomId] = useState((openRooms[0] ?? ownedRooms[0])?.id ?? "");
@@ -51,7 +53,7 @@ export function FriendsAndRooms({ friends, viewerUsername, ownedRooms, initialCo
   const roomHasSpace = room ? room.member_count < ROOM_MAX_MEMBERS : false;
 
   const [busy, setBusy] = useState<string | null>(null);
-  const [friendMessage, setFriendMessage] = useState<Message>(null);
+  const [friendMessage, setFriendMessage] = useState<Message>(friendsNotice ? { kind: "error", text: friendsNotice } : null);
   const [inviteMessage, setInviteMessage] = useState<Message>(null);
 
   const inviteLink = () => (room ? `${window.location.origin}/rooms/join?code=${room.invite_code}` : "");

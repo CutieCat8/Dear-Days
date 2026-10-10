@@ -94,15 +94,37 @@ export type SlotAssignment<T extends FrameSlot | DiarySlot> = { slot: T; memory:
 
 const byPriority = <T extends { priority: number }>(slots: T[]) => [...slots].sort((a, b) => a.priority - b.priority);
 
-/** Photo memories → frames, text-only memories → diaries. Slots without a memory are dropped. */
-export function assignMemories(memories: Memory[]) {
+/** Frame id → memory id: photos the members pinned to a specific frame. */
+export type FramePins = Record<string, string>;
+
+/**
+ * Photo memories → frames, text-only memories → diaries. Slots without a memory are dropped.
+ * Pinned photos take their chosen frame first; every other frame is filled automatically, in priority order,
+ * with the remaining photos in the order given (newest first). A pin that no longer fits (unknown frame, memory
+ * gone or without a photo, memory pinned twice) is ignored, so the frame simply falls back to automatic.
+ */
+export function assignMemories(memories: Memory[], pins: FramePins = {}) {
   const photos = memories.filter((memory) => memory.media.length > 0);
   const notes = memories.filter((memory) => memory.media.length === 0);
+  const photoById = new Map(photos.map((memory) => [memory.id, memory]));
 
+  const slots = byPriority(FRAME_SLOTS);
+  const pinned = new Map<string, Memory>();
+  const used = new Set<string>();
+  for (const slot of slots) {
+    const memory = photoById.get(pins[slot.id]);
+    if (memory && !used.has(memory.id)) {
+      pinned.set(slot.id, memory);
+      used.add(memory.id);
+    }
+  }
+
+  const rest = photos.filter((memory) => !used.has(memory.id));
   const frames: SlotAssignment<FrameSlot>[] = [];
-  byPriority(FRAME_SLOTS).forEach((slot, index) => {
-    if (photos[index]) frames.push({ slot, memory: photos[index] });
-  });
+  for (const slot of slots) {
+    const memory = pinned.get(slot.id) ?? rest.shift();
+    if (memory) frames.push({ slot, memory });
+  }
   const diaries: SlotAssignment<DiarySlot>[] = [];
   byPriority(DIARY_SLOTS).forEach((slot, index) => {
     if (notes[index]) diaries.push({ slot, memory: notes[index] });
@@ -111,7 +133,28 @@ export function assignMemories(memories: Memory[]) {
 }
 
 /** Memories that actually have an object in the room, in a stable order (used for previous/next). */
-export function visibleMemories(memories: Memory[]) {
-  const { frames, diaries } = assignMemories(memories);
+export function visibleMemories(memories: Memory[], pins: FramePins = {}) {
+  const { frames, diaries } = assignMemories(memories, pins);
   return [...frames.map((item) => item.memory), ...diaries.map((item) => item.memory)];
+}
+
+/** What hangs where right now (pinned or automatic), as pins. Saving this keeps every frame exactly as it looks. */
+export function displayedPins(frames: SlotAssignment<FrameSlot>[]): FramePins {
+  return Object.fromEntries(frames.map(({ slot, memory }) => [slot.id, memory.id]));
+}
+
+/**
+ * Hangs `memoryId` in frame `slotId`. If that photo hung in another frame, the two frames swap
+ * (or the other frame is left to the automatic layout when this frame was empty).
+ */
+export function placeInFrame(current: FramePins, slotId: string, memoryId: string): FramePins {
+  const next = { ...current };
+  const from = Object.keys(next).find((id) => next[id] === memoryId && id !== slotId);
+  const previous = next[slotId];
+  if (from) {
+    if (previous) next[from] = previous;
+    else delete next[from];
+  }
+  next[slotId] = memoryId;
+  return next;
 }

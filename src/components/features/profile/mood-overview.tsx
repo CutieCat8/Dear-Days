@@ -3,7 +3,8 @@
 import { usePathname, useRouter } from "next/navigation";
 import { useTransition } from "react";
 
-import { ChartIcon } from "@/components/shared/icons";
+import { Dropdown } from "@/components/ui/dropdown";
+import { CalendarIcon, ChartIcon } from "@/components/shared/icons";
 import { MOOD_LABELS, MOODS } from "@/lib/contracts/constants";
 import type { Mood } from "@/lib/contracts/types";
 import { MOOD_RANGES, type ProfileOverview } from "@/lib/data/profile-overview";
@@ -35,15 +36,16 @@ export function MoodOverview({ mood }: { mood: ProfileOverview["mood"] }) {
           <p className="mt-1 text-xs text-[var(--color-muted)]">A simple look at how you&apos;ve been feeling.<br />This is just a personal reflection — not a medical diagnosis.</p>
         </div>
         <label className="sr-only" htmlFor="mood-range">Time range</label>
-        <select
-          className="field-input !min-h-9 !w-auto !py-1 text-xs"
+        <Dropdown
+          className="min-w-36"
           disabled={pending}
+          icon={<CalendarIcon />}
           id="mood-range"
-          onChange={(event) => startTransition(() => router.replace(`${pathname}?months=${event.target.value}`, { scroll: false }))}
-          value={mood.months}
-        >
-          {MOOD_RANGES.map((months) => <option key={months} value={months}>{RANGE_LABELS[months]}</option>)}
-        </select>
+          onChange={(months) => startTransition(() => router.replace(`${pathname}?months=${months}`, { scroll: false }))}
+          options={MOOD_RANGES.map((months) => ({ value: String(months), label: RANGE_LABELS[months] }))}
+          triggerClassName="!min-h-9 !py-1 text-xs"
+          value={String(mood.months)}
+        />
       </div>
 
       <ul aria-busy={pending} className={`grid grid-cols-3 gap-px overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-border)] sm:grid-cols-6 ${pending ? "opacity-60" : ""}`}>

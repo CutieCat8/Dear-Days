@@ -21,13 +21,21 @@ export async function loadHomeOverview(source: DearDaysDataSource): Promise<Data
   const memoryCounts = new Map<string, number>();
   const memories: Memory[] = [];
   const tags: Tag[] = [];
-  for (const room of rooms.data) {
-    const page = await source.listMemories({ room_id: room.id, page: 1, page_size: 50, sort: "memory_date_desc" });
+  // every room's memories and tags are independent: ask for all of them at once instead of one room after another
+  const perRoom = await Promise.all(
+    rooms.data.map(async (room) => {
+      const [page, roomTags] = await Promise.all([
+        source.listMemories({ room_id: room.id, page: 1, page_size: 50, sort: "memory_date_desc" }),
+        source.listTags(room.id),
+      ]);
+      return { room, page, roomTags };
+    }),
+  );
+  for (const { room, page, roomTags } of perRoom) {
     if (!page.ok) return page;
+    if (!roomTags.ok) return roomTags;
     memoryCounts.set(room.id, page.data.total);
     memories.push(...page.data.items);
-    const roomTags = await source.listTags(room.id);
-    if (!roomTags.ok) return roomTags;
     tags.push(...roomTags.data);
   }
 

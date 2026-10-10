@@ -1,0 +1,84 @@
+.header {
+  display: flex;
+  width: 100%;
+  min-height: 3rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.5rem 1rem;
+  border: 0;
+  border-radius: inherit;
+  background: transparent;
+  color: var(--color-green-deep);
+  cursor: pointer;
+  text-align: left;
+}
+
+.header:focus-visible {
+  outline: 3px solid var(--color-honey);
+  outline-offset: -3px;
+}
+
+.title {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.count {
+  padding: 0.1rem 0.55rem;
+  border-radius: 999px;
+  background: var(--color-sage);
+  color: var(--color-green);
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+
+.chevron {
+  width: 1.1rem;
+  height: 1.1rem;
+  color: var(--color-muted);
+  transition: transform 300ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.chevron[data-open] {
+  transform: rotate(180deg);
+}
+
+/* Grows downwards: grid rows 0fr -> 1fr, so the height is animated without knowing it. */
+.body {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transition:
+    grid-template-rows 360ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    opacity 240ms ease;
+}
+
+.body[data-open] {
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+
+.inner {
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* fully open: let dropdown menus extend past the panel's edge */
+.inner[data-settled] {
+  overflow: visible;
+}
+
+.content {
+  padding: 0.25rem 1rem 1rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .body,
+  .chevron {
+    transition-duration: 0s;
+  }
+}

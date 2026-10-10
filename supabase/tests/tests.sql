@@ -588,4 +588,122 @@ do $$ begin
 end $$;
 rollback;
 
+-- ---------------------------------------------------------------- 13. frame slots: members pick which photo hangs in which frame
+begin;
+select t.as_user('owner') as u \gset
+do $$
+declare r public.rooms; m_photo1 uuid := gen_random_uuid(); m_photo2 uuid := gen_random_uuid(); m_text uuid := gen_random_uuid();
+begin
+  r := public.create_room('Frames', 'p', 'sunrise');
+  perform set_config('t.fr_room', r.id::text, true);
+  perform set_config('t.fr_code', r.invite_code, true);
+  perform set_config('t.fr_m1', m_photo1::text, true);
+  perform set_config('t.fr_m2', m_photo2::text, true);
+  perform set_config('t.fr_mt', m_text::text, true);
+  perform public.save_memory(r.id, m_photo1, format('{"title":"p1","body":"b","memory_date":"2026-10-01","tags":[],"media":{"added":[{"client_id":"a0000000-0000-4000-8000-0000000000c1","id":"a0000000-0000-4000-8000-0000000000c1","storage_path":"%s/%s/%s/1.jpg","mime_type":"image/jpeg","size_bytes":10,"alt_text":""}],"existing":[],"removed_media_ids":[],"order":[{"kind":"new","client_id":"a0000000-0000-4000-8000-0000000000c1"}],"cover":{"kind":"new","client_id":"a0000000-0000-4000-8000-0000000000c1"}}}', r.id, auth.uid(), m_photo1)::jsonb);
+  perform public.save_memory(r.id, m_photo2, format('{"title":"p2","body":"b","memory_date":"2026-10-02","tags":[],"media":{"added":[{"client_id":"a0000000-0000-4000-8000-0000000000c2","id":"a0000000-0000-4000-8000-0000000000c2","storage_path":"%s/%s/%s/2.jpg","mime_type":"image/jpeg","size_bytes":10,"alt_text":""}],"existing":[],"removed_media_ids":[],"order":[{"kind":"new","client_id":"a0000000-0000-4000-8000-0000000000c2"}],"cover":{"kind":"new","client_id":"a0000000-0000-4000-8000-0000000000c2"}}}', r.id, auth.uid(), m_photo2)::jsonb);
+  perform public.save_memory(r.id, m_text, '{"title":"t","body":"b","memory_date":"2026-10-03","tags":[],"media":{"added":[],"existing":[],"removed_media_ids":[],"order":[],"cover":null}}'::jsonb);
+end $$;
+create temp table frctx as select current_setting('t.fr_room') as room, current_setting('t.fr_code') as code,
+  current_setting('t.fr_m1') as m1, current_setting('t.fr_m2') as m2, current_setting('t.fr_mt') as mt;
+grant select on frctx to public;
+commit;
+
+begin;
+select t.as_user('owner') as u \gset
+do $$
+declare room uuid := (select room::uuid from frctx);
+begin
+  perform public.set_frame_layout(room, format('{"left1":%s,"right2":%s}', to_json((select m1 from frctx)), to_json((select m2 from frctx)))::jsonb);
+  perform t.eq((select count(*) from public.room_frame_slots where room_id = room), 2::bigint, 'owner saves a layout');
+  -- swapping two photos in one save never violates "one memory per frame"
+  perform public.set_frame_layout(room, format('{"left1":%s,"right2":%s}', to_json((select m2 from frctx)), to_json((select m1 from frctx)))::jsonb);
+  perform t.eq((select memory_id::text from public.room_frame_slots where room_id = room and slot_id = 'left1'), (select m2 from frctx), 'photos swap frames');
+  perform t.throws(format('select public.set_frame_layout(%L, %L::jsonb)', room, format('{"a":%s,"b":%s}', to_json((select m1 from frctx)), to_json((select m1 from frctx)))), 'room_frame_slots_memory_key');
+  perform t.eq((select count(*) from public.room_frame_slots where room_id = room), 2::bigint, 'a failed save keeps the previous layout');
+  perform t.throws(format('select public.set_frame_layout(%L, %L::jsonb)', room, format('{"a":%s}', to_json((select mt from frctx)))), 'VALIDATION_ERROR');
+  perform t.throws(format('select public.set_frame_layout(%L, %L::jsonb)', room, '{"bad slot!":"x"}'), 'VALIDATION_ERROR');
+  perform t.throws(format('select public.set_frame_layout(%L, %L::jsonb)', room, '[]'), 'VALIDATION_ERROR');
+  perform t.throws(format('select public.set_frame_layout(%L, %L::jsonb)', room, (select jsonb_object_agg('s' || g, (select m1 from frctx)) from generate_series(1, 41) g)::text), 'VALIDATION_ERROR');
+  perform t.eq((select count(*) from public.room_frame_slots where room_id = room), 2::bigint, 'an oversized layout is refused and keeps the previous arrangement');
+  perform t.throws(format('insert into public.room_frame_slots (room_id, slot_id, memory_id) values (%L, ''z'', %L)', room, (select m1 from frctx)), 'permission denied');
+  perform t.throws(format('delete from public.room_frame_slots where room_id = %L', room), 'permission denied');
+end $$;
+commit;
+
+begin;
+select t.as_user('outsider') as u \gset
+do $$
+declare room uuid := (select room::uuid from frctx);
+begin
+  perform t.eq((select count(*) from public.room_frame_slots), 0::bigint, 'outsider sees no frame slots');
+  perform t.throws(format('select public.set_frame_layout(%L, %L::jsonb)', room, '{}'), 'FORBIDDEN');
+end $$;
+rollback;
+
+begin;
+select t.as_anon() as u \gset
+do $$ begin
+  perform t.throws(format('select public.set_frame_layout(%L, %L::jsonb)', (select room from frctx), '{}'), 'permission denied');
+  perform t.throws('select * from public.room_frame_slots', 'permission denied');
+end $$;
+rollback;
+
+-- a second member can read and change the arrangement; deleting a memory frees its frame
+begin;
+select t.as_user('partner') as u \gset
+do $$
+declare room uuid := (select room::uuid from frctx);
+begin
+  perform public.join_room((select code from frctx));
+  perform t.eq((select count(*) from public.room_frame_slots where room_id = room), 2::bigint, 'member reads the arrangement');
+  perform public.set_frame_layout(room, format('{"only":%s}', to_json((select m1 from frctx)))::jsonb);
+  perform t.eq((select count(*) from public.room_frame_slots where room_id = room), 1::bigint, 'member changes the arrangement');
+  perform public.set_frame_layout(room, '{}'::jsonb);
+  perform t.eq((select count(*) from public.room_frame_slots where room_id = room), 0::bigint, 'empty layout returns to the automatic arrangement');
+end $$;
+commit;
+
+begin;
+select t.as_user('owner') as u \gset
+do $$
+declare room uuid := (select room::uuid from frctx);
+begin
+  perform public.set_frame_layout(room, format('{"f1":%s}', to_json((select m1 from frctx)))::jsonb);
+end $$;
+reset role;
+delete from public.memories where id = (select m1::uuid from frctx);
+do $$ begin
+  perform t.eq((select count(*) from public.room_frame_slots where room_id = (select room::uuid from frctx)), 0::bigint, 'deleting the memory frees its frame');
+end $$;
+commit;
+
+-- ---------------------------------------------------------------- 14. table privileges of the API roles (no leftover defaults)
+do $$
+declare
+  r record;
+begin
+  for r in
+    select c.relname, c.relkind
+    from pg_class c join pg_namespace n on n.oid = c.relnamespace
+    where n.nspname = 'public' and c.relkind in ('r', 'v')
+  loop
+    -- nothing at all for a signed-out visitor
+    perform t.eq(
+      (has_table_privilege('anon', format('public.%I', r.relname), 'SELECT') or has_table_privilege('anon', format('public.%I', r.relname), 'INSERT')
+       or has_table_privilege('anon', format('public.%I', r.relname), 'UPDATE') or has_table_privilege('anon', format('public.%I', r.relname), 'DELETE')
+       or has_table_privilege('anon', format('public.%I', r.relname), 'TRUNCATE')),
+      false, 'anon has no privilege on ' || r.relname);
+    -- signed-in users: read, never TRUNCATE / REFERENCES / TRIGGER, never table-wide INSERT or UPDATE (writes go through RPCs or column grants)
+    perform t.eq(has_table_privilege('authenticated', format('public.%I', r.relname), 'SELECT'), true, 'authenticated can read ' || r.relname);
+    perform t.eq(
+      (has_table_privilege('authenticated', format('public.%I', r.relname), 'TRUNCATE') or has_table_privilege('authenticated', format('public.%I', r.relname), 'REFERENCES')
+       or has_table_privilege('authenticated', format('public.%I', r.relname), 'TRIGGER') or has_table_privilege('authenticated', format('public.%I', r.relname), 'INSERT')
+       or has_table_privilege('authenticated', format('public.%I', r.relname), 'UPDATE')),
+      false, 'authenticated has no TRUNCATE/REFERENCES/TRIGGER/INSERT/table-wide UPDATE on ' || r.relname);
+    -- DELETE only where the app deletes through RLS: rooms (owner) and memories (author)
+    perform t.eq(has_table_privilege('authenticated', format('public.%I', r.relname), 'DELETE'), r.relname in ('rooms', 'memories'), 'DELETE privilege on ' || r.relname);
+  end loop;
+end $$;
+
 \echo 'ALL DATABASE TESTS PASSED'

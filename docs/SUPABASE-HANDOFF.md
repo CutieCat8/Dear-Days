@@ -7,8 +7,9 @@ Branch: `backend/supabase-integration`. Includes R1 (`origin/main` `b8b6bb1`): c
 | Area | State |
 | --- | --- |
 | Migrations, RLS, RPC, private bucket | Written. Tested on plain Postgres 15 (`npm run test:db`) and on a local Supabase stack (`npm run test:integration`, 19 checks). |
+| Local tests | `test:db` (plain Postgres with Supabase's default privileges), `test:integration` 24 checks on a local Supabase stack, `test:unit` 44 tests. |
 | Local browser flows (real mode) | Checked in Chrome against the local stack: sign up/in/out, create room + theme, invite link, join, full room, text and photo memories, edit/reorder/cover/delete, reload, logout, outsider 404, signed URL refresh in the 3D scene. |
-| Hosted project `Dear-Days` (`bnukioggopvrnppxkkkk`) | Migrations `20261010000000`, `...0100`, `...0200`, `...0300` (R1 alignment) applied with `db push` (no reset). Verified read-only: RLS on all 7 tables, bucket `memory-media` private (10 MiB, jpeg/png/webp), 3 storage policies, anon has no table or RPC access, bucket public URL denied. Security advisor: only the RPCs meant for signed-in users remain. |
+| Hosted project `Dear-Days` (`bnukioggopvrnppxkkkk`) | All seven migrations (through `20261011000100`) applied with `db push` (no reset); see "Hosted: friends, frame slots and privileges" below. Verified read-only: RLS on all 7 tables, bucket `memory-media` private (10 MiB, jpeg/png/webp), 3 storage policies, anon has no table or RPC access, bucket public URL denied. Security advisor: only the RPCs meant for signed-in users remain. |
 | Hosted browser flows | NOT tested: sign up with real e-mail, login/logout, invite to join, rooms, memories with photos, 3D, outsider and non-author permissions. A sign-up attempt hit the Supabase built-in mail rate limit, so no hosted test accounts exist. |
 | Email confirmation | Dashboard setting is on (the app showed the "check your e-mail" notice and a real account was confirmed by its owner), but the full confirm-then-return flow was not run by us. Built-in mail is rate limited: configure custom SMTP before real use or before the 3-account test. |
 
@@ -80,8 +81,55 @@ Still not exercised on hosted: owner removing a real second member and the membe
 
 The owner / member / outsider permission rules for `remove_room_member` were tested on the local stack (`test:db`, `test:integration`); they were not exercised with two real hosted accounts (no hosted test accounts were created, to avoid sending mail); the single-account rules above were checked on hosted.
 
+### Hosted: friends, frame slots and privileges (2026-10-10)
+
+Applied to `bnukioggopvrnppxkkkk` with `npx supabase db push` after `--dry-run` listed only the pending files; no reset, no applied migration renamed. Before applying: a data and schema dump of the hosted project (kept outside the repository, it contains user data) and a snapshot of row counts and content hashes.
+
+Review of `20261010000400_friends.sql` and `20261011000000_room_frame_slots.sql`: dependencies are in order; constraints, RLS and RPC rules match `docs/CONTRACTS.md`. One change before applying: `set_frame_layout` now refuses a layout of more than 40 frames before doing any work (it used to check after inserting). One gap found *after* applying and fixed by a new migration `20261011000100_tighten_table_privileges.sql`: `authenticated` kept every table privilege (including TRUNCATE) on `room_frame_slots` and on the `room_summaries` view, because only `anon` and `public` had been revoked. Row Level Security already blocked writes, and TRUNCATE is not reachable through the API, but the privileges are now SELECT only. The new test section and the default-privilege mimic in `bootstrap.sql` catch this class of mistake.
+
+Review repeated before PR #14 merge: keep `20261011000100` as a separate forward-only migration because the preceding
+migrations have already been applied on hosted and must not be edited. Revoking all table privileges and granting back
+only `SELECT` preserves the app's reads from `room_summaries` and `room_frame_slots`. It does not revoke function
+`EXECUTE`; `set_frame_layout` remains an authenticated-only `SECURITY DEFINER` RPC, so members can still save layouts
+without direct table writes. The local privilege suite checks that authenticated users retain reads, lose table-wide
+writes and `TRUNCATE`, and that anon retains no table or RPC access.
+
+Hosted grant audit before PR #14 merge (non-mutating): anon reads of `room_summaries` and anon calls to
+`set_frame_layout` both returned `42501`; the owner read the retained room from `room_summaries` and its two frame-slot
+rows; an authenticated `set_frame_layout` call with a null layout reached the function's `VALIDATION_ERROR` (`22P02`)
+before its delete/write section; and the complete frame rows, including timestamps, were identical before and after.
+
+Checked on hosted after the pushes:
+
+| Check | Result |
+| --- | --- |
+| Existing data | unchanged: 2 users, 2 profiles, 2 rooms, 28 memories, 34 media, 26 tags, 34 storage objects; content hashes of profiles, rooms and memories identical to the snapshot taken before |
+| `profiles.username` | all rows filled by the backfill, all valid and distinct, NOT NULL, unique index present |
+| Privileges | `authenticated`: SELECT only on every table/view except `rooms` and `memories` (SELECT, DELETE); no TRUNCATE, INSERT, REFERENCES or TRIGGER anywhere; `anon`: nothing; `anon` can execute no function |
+| Security advisor | only the RPCs and RLS helpers signed-in users call, plus leaked-password protection off (Dashboard setting, unchanged) |
+| App, owner's session, dev server | Profile page loads the username without the fallback (no warning in the server log); Friends & Rooms loads without the "not available" notice; no request to `/sign-in` |
+| Frame slots in the UI (test room "R1 frames check (test)", two test memories) | "Arrange frames", chose the other photo for a frame: the two frames swapped, rows `L2` = memory A, `R4` = memory B in `room_frame_slots`; after a reload the same arrangement is shown |
+| Friend requests and frame rules with the two real hosted accounts, in one transaction that was rolled back (nothing written) | request: pending; asking twice `CONFLICT`; yourself `VALIDATION_ERROR`; unknown username `NOT_FOUND`; the requester cannot accept; a stranger sees no friendships or profiles and gets `NOT_FOUND` on answer and remove; the addressee accepts; already friends `CONFLICT`; friends see no rooms or memories; either person unfriends and the profile is hidden again; direct INSERT/UPDATE/TRUNCATE on `friendships` and INSERT/TRUNCATE on `room_frame_slots` denied; a non-member gets `FORBIDDEN` on `set_frame_layout` and reads no slots; the owner saves, swaps and reads back the arrangement; a duplicate memory, a text-only memory and an oversized layout are refused and keep the previous arrangement; `anon` cannot call either RPC |
+
+The room `R1 frames check (test)` is intentionally retained on hosted as demo/test data. Its two photo memories,
+two private Storage objects and two frame-slot rows are part of that retained sample and must not be cleaned up as
+orphaned test data. A read-only audit on 2026-10-10 found exactly one room with that name, confirmed the signed-in
+demo account is its owner, and confirmed the two database storage paths exactly match the two objects under the room
+prefix.
+
+**Not checked on hosted with real separate sign-ins:** a second account joining and using a room (member and outsider browsing, the member arranging frames in the UI, the outsider opening the room by URL), sending and accepting a friend request through the Friends & Rooms page, and the e-mail confirmation round trip. The rules were exercised with the two real accounts in the rolled-back transaction above, and with four accounts on the local stack (`test:integration`), not through two browser sessions on hosted.
+
+**Known limits of the friends design (not changed here):** a pending request lets the sender read the whole profile row of the person asked (display name, avatar, bio); `send_friend_request` tells whether a username exists (`NOT_FOUND`) and has no rate limit, so usernames can be enumerated; declining deletes the request so it can be sent again.
+
+### Follow-up backlog (not part of PR #14)
+
+- Limit which profile fields a sender of a pending friend request can read.
+- Prevent username enumeration and add rate limiting to friend-request lookup/submission.
+- Run hosted multi-account browser flows, including the complete e-mail confirmation round trip.
+- Remove the legacy username fallback after every supported schema includes `profiles.username`.
+
 ## Not done
-Hosted browser flows and e-mail round-trip (above), avatar upload (the column exists, no upload UI), rate limiting of invite-code guesses, mobile 3D loading (backlog in `docs/ROOM-3D-HANDOFF.md`), deployment.
+Multi-account browser flows on hosted and the e-mail round-trip (above), avatar upload (the column exists, no upload UI), rate limiting of invite-code guesses, mobile 3D loading (backlog in `docs/ROOM-3D-HANDOFF.md`), deployment.
 
 ## After pulling
 ```
