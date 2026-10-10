@@ -7,6 +7,7 @@ import { useState, type FormEvent } from "react";
 import { ArrowRightIcon, EyeIcon, LeafIcon, LockIcon, MailIcon } from "@/components/shared/icons";
 import { RoomCover } from "@/components/shared/room-cover";
 import { dataMode } from "@/lib/data/config";
+import { useHydrated } from "@/lib/use-hydrated";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 type AuthScreenProps = {
@@ -47,6 +48,7 @@ export function AuthScreen({ mode, next = "/" }: AuthScreenProps) {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const hydrated = useHydrated();
 
   /** Where to go after signing in: the page the proxy redirected from, same-site paths only. */
   function nextPath() {
@@ -141,7 +143,7 @@ export function AuthScreen({ mode, next = "/" }: AuthScreenProps) {
           <h1 className="title-xl">{copy.title}</h1>
           <p className="mt-2.5 text-sm leading-6 text-[var(--color-muted)]">{copy.lead}</p>
 
-          <form className="mt-7 grid gap-4" onSubmit={handleSubmit}>
+          <form className="mt-7 grid gap-4" method="post" onSubmit={handleSubmit}>
             {mode === "sign-up" ? (
               <div>
                 <label className="field-label" htmlFor="display-name">Display name</label>
@@ -172,7 +174,7 @@ export function AuthScreen({ mode, next = "/" }: AuthScreenProps) {
             </div>
             {error ? <p className="rounded-lg bg-[#f8e3e3] px-3 py-2 text-xs text-[#8a3a3a]" role="alert">{error}</p> : null}
             {notice ? <p className="rounded-lg bg-[var(--color-sage)] px-3 py-2 text-xs text-[var(--color-green-deep)]" role="status">{notice}</p> : null}
-            <button className="btn btn-primary w-full disabled:opacity-60" disabled={pending} type="submit">{pending ? "Please wait…" : copy.submit} <ArrowRightIcon className="size-4" /></button>
+            <button className="btn btn-primary w-full disabled:opacity-60" disabled={pending || !hydrated} type="submit">{pending ? "Please wait…" : copy.submit} <ArrowRightIcon className="size-4" /></button>
           </form>
 
           <div className="my-5 flex items-center gap-3 text-xs text-[var(--color-muted)]">

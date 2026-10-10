@@ -5,6 +5,7 @@ import { z } from "zod";
 
 import { dataMode } from "@/lib/data/config";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { useHydrated } from "@/lib/use-hydrated";
 
 const passwordSchema = z.object({
   current_password: z.string().min(1, "Please enter your current password"),
@@ -29,6 +30,7 @@ export function ChangePasswordForm({ email }: { email: string | null }) {
   const [errors, setErrors] = useState<Partial<Record<FieldName, string>>>({});
   const [message, setMessage] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
   const [pending, setPending] = useState(false);
+  const hydrated = useHydrated();
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -69,7 +71,7 @@ export function ChangePasswordForm({ email }: { email: string | null }) {
   }
 
   return (
-    <form className="grid gap-4" noValidate onSubmit={submit}>
+    <form className="grid gap-4" method="post" noValidate onSubmit={submit}>
       <div>
         <h2 className="title-md">Change password</h2>
         <p className="text-xs text-[var(--color-muted)]">Use a strong password to keep your account safe.</p>
@@ -88,7 +90,7 @@ export function ChangePasswordForm({ email }: { email: string | null }) {
       })}
       {message ? <p className={`rounded-lg px-3 py-2 text-xs ${message.kind === "ok" ? "bg-[var(--color-sage)] text-[var(--color-green-deep)]" : "bg-[#f8e3e3] text-[#8a3a3a]"}`} role={message.kind === "ok" ? "status" : "alert"}>{message.text}</p> : null}
       <div className="sm:pl-[calc(8.5rem+1rem)]">
-        <button className="btn btn-secondary min-w-36 disabled:opacity-60" disabled={pending || demo} type="submit">{pending ? "Updating…" : "Update password"}</button>
+        <button className="btn btn-secondary min-w-36 disabled:opacity-60" disabled={pending || demo || !hydrated} type="submit">{pending ? "Updating…" : "Update password"}</button>
       </div>
       {demo ? <p className="text-xs text-[var(--color-muted)]">Demo mode: sign in with a real account to change your password.</p> : null}
     </form>
