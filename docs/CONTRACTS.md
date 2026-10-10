@@ -38,7 +38,7 @@
 type Profile = {
   id: string;                 // UUID เดียวกับ auth user id
   display_name: string;       // 1..50
-  avatar_url: string | null;  // MVP ยังไม่มี upload avatar; UI ใช้ตัวอักษรแรกแทนเมื่อเป็น null
+  avatar_url: string | null;  // signed display URL ตอนอ่าน; null ใช้ตัวอักษรแรก (ห้ามบันทึก signed URL ลง DB)
   created_at: string;
   updated_at: string;
 };
@@ -49,6 +49,15 @@ type ProfileInput = {
 ```
 
 ทุก user ต้องมี profile หนึ่งแถว (สร้างตอนสมัคร — ซีกำหนดกลไกใน R2) Profile ไม่มี email; email อยู่ใน Supabase Auth เท่านั้นและไม่ส่งให้สมาชิกคนอื่น
+
+Profile media ใช้ private Storage bucket `profile-media` และเก็บเฉพาะ path ถาวรใน
+`profiles.avatar_path` / `profiles.cover_path` รูปแบบ `{user_id}/{avatar|cover}/{uuid}.{ext}`
+ส่วน `avatar_url` และ account-only `cover_url` เป็น signed URL อายุสั้นที่ data layer สร้างเมื่ออ่าน
+และ UI ต้องมี initials/default cover fallback เมื่อ path หรือ signed URL ใช้งานไม่ได้ สิทธิ์อ่าน object
+ต้องเท่ากับ `profiles_select` ปัจจุบันทุกกรณี; เจ้าของ path เท่านั้นที่ upload/delete ได้
+
+ข้อจำกัดทั้ง avatar และ cover: รูปเดียว, JPEG/PNG/WebP, ไม่เกิน 5 MiB ต่อไฟล์ การเปลี่ยนรูปต้อง upload
+ชื่อใหม่ → บันทึก path ใหม่สำเร็จ → ลบ object เก่า หากบันทึก profile ล้มเหลวให้ลบ object ใหม่และคงรูปเดิม
 
 ### Room
 

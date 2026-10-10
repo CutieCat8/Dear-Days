@@ -17,6 +17,9 @@ const ACCOUNT: Account = {
   email: "sea@example.com",
   bio: null,
   username: "sea",
+  avatar_path: null,
+  cover_path: null,
+  cover_url: null,
 };
 
 describe("viewerFromResult: a failed query is not a signed-out visitor", () => {
@@ -49,6 +52,11 @@ function fakeClient(replies: Reply[]) {
         return { eq: () => ({ maybeSingle: async () => reply }) };
       },
     }),
+    storage: {
+      from: () => ({
+        createSignedUrls: async (paths: string[]) => ({ data: paths.map((path) => ({ path, signedUrl: `https://signed.test/${path}` })), error: null }),
+      }),
+    },
   } as unknown as SupabaseClient<Database>;
   return { client, selects };
 }
@@ -62,6 +70,32 @@ describe("getMyAccount", () => {
     assert.ok(result.ok && result.data.username === "sea");
     assert.equal(selects.length, 1);
     assert.match(selects[0], /username/);
+  });
+
+  it("keeps paths durable and exposes fresh signed avatar and cover URLs", async () => {
+    const avatarPath = `${ACCOUNT.id}/avatar/a.jpg`;
+    const coverPath = `${ACCOUNT.id}/cover/c.webp`;
+    const { client } = fakeClient([{ data: { ...row, username: "sea", avatar_path: avatarPath, cover_path: coverPath }, error: null }]);
+    const result = await getMyAccount(client);
+    assert.ok(result.ok);
+    assert.equal(result.data.avatar_path, avatarPath);
+    assert.equal(result.data.cover_path, coverPath);
+    assert.equal(result.data.avatar_url, `https://signed.test/${avatarPath}`);
+    assert.equal(result.data.cover_url, `https://signed.test/${coverPath}`);
+  });
+
+  it("keeps the legacy avatar URL working before the profile-media migration is applied", async () => {
+    const legacy = { ...row, username: "sea", avatar_url: "https://legacy.test/avatar.jpg" };
+    const { client, selects } = fakeClient([
+      { data: null, error: { code: "42703", message: "column profiles.avatar_path does not exist" } },
+      { data: legacy, error: null },
+    ]);
+    const result = await getMyAccount(client);
+    assert.ok(result.ok);
+    assert.equal(result.data.avatar_url, legacy.avatar_url);
+    assert.equal(result.data.avatar_path, null);
+    assert.equal(result.data.cover_path, null);
+    assert.equal(selects.length, 2);
   });
 
   it("loads the profile without username when only that column is missing (migration 0400 not applied yet)", async () => {

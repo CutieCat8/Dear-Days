@@ -24,7 +24,7 @@ const getServerClient = cache(() => createSupabaseServerClient());
 
 /** The signed-in person. In demo mode there is no sign-in and the fixture profile is returned. */
 export const getViewer = cache(async (): Promise<Account | null> => {
-  if (dataMode() === "mock") return { ...mockCurrentProfile, email: null, bio: null, username: mockUsernames[mockCurrentProfile.id] ?? null };
+  if (dataMode() === "mock") return { ...mockCurrentProfile, email: null, bio: null, username: mockUsernames[mockCurrentProfile.id] ?? null, avatar_path: null, cover_path: null, cover_url: null };
   return viewerFromResult(await getMyAccount(await getServerClient()));
 });
 

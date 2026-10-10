@@ -15,6 +15,7 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 import type { MemoryInput, NewMediaUpload } from "../src/lib/contracts/types";
 import { getMyAccount, listRoomMembers, updateMyAccount } from "../src/lib/data/profile";
+import { PROFILE_MEDIA_BUCKET, saveProfileMedia } from "../src/lib/data/profile-media";
 import { getSessionUser } from "../src/lib/data/session";
 import { SupabaseDataSource } from "../src/lib/data/supabase-source";
 
@@ -143,6 +144,42 @@ async function main() {
     assert.deepEqual(members.data.get(roomId)?.map((m) => m.display_name).sort(), ["owner", "partner"]);
     const stranger = await outsider.client.from("profiles").select("user_id").eq("user_id", owner.id);
     assert.equal(stranger.data?.length, 0);
+  });
+
+  await step("private profile avatar and cover follow profile visibility and owner-only writes", async () => {
+    const firstAvatar = await saveProfileMedia(owner.client, "avatar", png(), null);
+    assert.ok(firstAvatar.ok && firstAvatar.data.signed_url, JSON.stringify(firstAvatar));
+    const oldAvatarPath = firstAvatar.data.path;
+
+    const account = await getMyAccount(owner.client);
+    assert.ok(account.ok && account.data.avatar_path === oldAvatarPath && account.data.avatar_url, JSON.stringify(account));
+    assert.equal((await fetch(account.data.avatar_url as string)).status, 200);
+
+    const partnerSigned = await partner.client.storage.from(PROFILE_MEDIA_BUCKET).createSignedUrl(oldAvatarPath, 60);
+    assert.ok(partnerSigned.data?.signedUrl, "a room member who can read the profile can sign its avatar");
+    assert.equal((await fetch(partnerSigned.data!.signedUrl)).status, 200);
+    const outsiderSigned = await outsider.client.storage.from(PROFILE_MEDIA_BUCKET).createSignedUrl(oldAvatarPath, 60);
+    assert.ok(outsiderSigned.error || !outsiderSigned.data?.signedUrl, "an outsider cannot sign the avatar");
+
+    const overwrite = await partner.client.storage.from(PROFILE_MEDIA_BUCKET).upload(oldAvatarPath, png(), { contentType: "image/png", upsert: true });
+    assert.ok(overwrite.error, "another reader cannot overwrite the owner's path");
+    const foreignPath = `${owner.id}/avatar/${crypto.randomUUID()}.png`;
+    const foreignInsert = await outsider.client.storage.from(PROFILE_MEDIA_BUCKET).upload(foreignPath, png(), { contentType: "image/png", upsert: false });
+    assert.ok(foreignInsert.error, "an outsider cannot insert under the owner's folder");
+
+    const replacement = await saveProfileMedia(owner.client, "avatar", png(), oldAvatarPath);
+    assert.ok(replacement.ok && replacement.data.path !== oldAvatarPath, JSON.stringify(replacement));
+    const oldDownload = await owner.client.storage.from(PROFILE_MEDIA_BUCKET).download(oldAvatarPath);
+    assert.ok(oldDownload.error, "the old avatar is removed only after the replacement path was saved");
+    const newDownload = await owner.client.storage.from(PROFILE_MEDIA_BUCKET).download(replacement.data.path);
+    assert.ok(!newDownload.error, "the replacement avatar remains");
+
+    const cover = await saveProfileMedia(owner.client, "cover", png(), null);
+    assert.ok(cover.ok && cover.data.signed_url, JSON.stringify(cover));
+    const refreshed = await getMyAccount(owner.client);
+    assert.ok(refreshed.ok && refreshed.data.cover_path === cover.data.path && refreshed.data.cover_url);
+    const publicUrl = `${url}/storage/v1/object/public/${PROFILE_MEDIA_BUCKET}/${cover.data.path}`;
+    assert.notEqual((await fetch(publicUrl)).status, 200, "profile-media must not expose a public URL");
   });
 
   await step("text-only memory (no photos, no mood)", async () => {

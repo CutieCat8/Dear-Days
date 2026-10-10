@@ -7,6 +7,7 @@ import { useState, type FormEvent } from "react";
 
 import { Breadcrumbs } from "@/components/shared/breadcrumbs";
 import { CopyIcon, LinkIcon, LockIcon, MoreIcon, SendIcon, UserPlusIcon, UsersIcon } from "@/components/shared/icons";
+import { ProfileAvatar } from "@/components/shared/profile-avatar";
 import { THEME_LABELS } from "@/components/shared/room-cover";
 import { INVITE_CODE_LENGTH, ROOM_MAX_MEMBERS } from "@/lib/contracts/constants";
 import type { FriendRequestView, FriendsOverview, FriendView, Room } from "@/lib/contracts/types";
@@ -25,20 +26,10 @@ type FriendsAndRoomsProps = {
 
 // Same pictures as the room form's live preview (one render per theme).
 const ROOM_PREVIEW: Record<Room["theme"], string> = { sunrise: "/room-preview.jpg", rose: "/room-preview-rose.jpg", night: "/room-preview-night.jpg" };
-const AVATAR_TONES = ["#5d7765", "#c98268", "#a59dbf", "#6f9cc4", "#b8925a"];
 const ERROR_BOX = "rounded-lg bg-[#f8e3e3] px-3 py-2 text-xs text-[#8a3a3a]";
 const OK_BOX = "rounded-lg bg-[var(--color-sage)] px-3 py-2 text-xs text-[var(--color-green-deep)]";
 
 type Message = { kind: "ok" | "error"; text: string } | null;
-
-function Avatar({ name, userId }: { name: string; userId: string }) {
-  const tone = AVATAR_TONES[[...userId].reduce((sum, char) => sum + char.charCodeAt(0), 0) % AVATAR_TONES.length];
-  return (
-    <span aria-hidden="true" className="font-display flex size-11 shrink-0 items-center justify-center rounded-full text-lg text-white" style={{ background: tone }}>
-      {name.charAt(0).toUpperCase()}
-    </span>
-  );
-}
 
 function Notice({ message }: { message: Message }) {
   if (!message) return null;
@@ -255,7 +246,7 @@ function FriendRow({ friend, canInvite, demo, busy, onInvite, onRemove }: { frie
 
   return (
     <li className="flex flex-wrap items-center gap-3 py-3">
-      <Avatar name={friend.display_name} userId={friend.user_id} />
+      <ProfileAvatar className="size-11 text-lg" name={friend.display_name} src={friend.avatar_url} />
       <div className="min-w-0 flex-1">
         <p className="font-display truncate text-[1.05rem] text-[var(--color-ink)]">{friend.display_name}</p>
         <p className="truncate text-xs text-[var(--color-muted)]">@{friend.username}</p>
@@ -292,7 +283,7 @@ function FriendRow({ friend, canInvite, demo, busy, onInvite, onRemove }: { frie
 function RequestRow({ request, demo, busy, onAccept, onDecline, onCancel }: { request: FriendRequestView; demo: boolean; busy: boolean; onAccept: () => void; onDecline: () => void; onCancel: () => void }) {
   return (
     <li className="flex flex-wrap items-center gap-3 py-3">
-      <Avatar name={request.display_name} userId={request.user_id} />
+      <ProfileAvatar className="size-11 text-lg" name={request.display_name} src={request.avatar_url} />
       <div className="min-w-0 flex-1">
         <p className="font-display truncate text-[1.05rem] text-[var(--color-ink)]">{request.display_name}</p>
         <p className="truncate text-xs text-[var(--color-muted)]">@{request.username}</p>

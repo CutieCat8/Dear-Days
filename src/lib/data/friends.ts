@@ -5,9 +5,10 @@ import type { DataResult, FriendRequestView, FriendsOverview, FriendView } from 
 import type { Database } from "@/lib/supabase/database.types";
 
 import { fail, failFrom, ok } from "./result";
+import { signedProfileMediaUrls } from "./profile-media";
 
 export type FriendshipRow = { id: string; requester_id: string; addressee_id: string; status: string; created_at: string; responded_at: string | null };
-export type FriendProfileRow = { user_id: string; display_name: string; username: string; avatar_url: string | null };
+export type FriendProfileRow = { user_id: string; display_name: string; username: string; avatar_url: string | null; avatar_path?: string | null };
 
 /**
  * Splits the viewer's friendship rows into friends / incoming / outgoing, joined with the other person's public profile.
@@ -50,9 +51,15 @@ export async function listFriends(client: SupabaseClient<Database>, viewerId: st
   const otherIds = [...new Set(rows.map((row) => (row.requester_id === viewerId ? row.addressee_id : row.requester_id)))];
   if (otherIds.length === 0) return ok({ friends: [], incoming: [], outgoing: [] });
 
-  const { data: profiles, error: profileError } = await client.from("profiles").select("user_id, display_name, username, avatar_url").in("user_id", otherIds);
+  let { data: profiles, error: profileError } = await client.from("profiles").select("user_id, display_name, username, avatar_url, avatar_path").in("user_id", otherIds);
+  if (profileError?.code === "42703" && /avatar_path/.test(profileError.message)) {
+    ({ data: profiles, error: profileError } = (await client.from("profiles").select("user_id, display_name, username, avatar_url").in("user_id", otherIds)) as unknown as { data: typeof profiles; error: typeof profileError });
+  }
   if (profileError) return failFrom(profileError);
-  return ok(friendsOverviewFromRows(viewerId, rows, profiles));
+  const visibleProfiles = profiles ?? [];
+  const urls = await signedProfileMediaUrls(client, visibleProfiles.map((profile) => profile.avatar_path));
+  const resolved = visibleProfiles.map((profile) => ({ ...profile, avatar_url: (profile.avatar_path && urls.get(profile.avatar_path)) || profile.avatar_url }));
+  return ok(friendsOverviewFromRows(viewerId, rows, resolved));
 }
 
 export async function sendFriendRequest(client: SupabaseClient<Database>, username: string): Promise<DataResult<{ friendship_id: string; status: "pending" | "accepted" }>> {

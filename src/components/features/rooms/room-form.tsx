@@ -7,6 +7,7 @@ import { useState, type FormEvent } from "react";
 
 import { Breadcrumbs } from "@/components/shared/breadcrumbs";
 import { PlusIcon, StarIcon } from "@/components/shared/icons";
+import { ProfileAvatar } from "@/components/shared/profile-avatar";
 import { THEME_LABELS } from "@/components/shared/room-cover";
 import type { Room } from "@/lib/contracts/types";
 import { createBrowserDataSource } from "@/lib/data/browser";
@@ -17,7 +18,7 @@ type RoomFormProps = {
   room?: Room;
   cancelHref: string;
   /** People in the room (names from their profiles). */
-  members?: Pick<RoomMemberView, "user_id" | "display_name" | "role">[];
+  members?: Pick<RoomMemberView, "user_id" | "display_name" | "avatar_url" | "role">[];
 };
 
 type Theme = Room["theme"];
@@ -42,14 +43,6 @@ function RoomPicture({ theme, className = "" }: { theme: Theme; className?: stri
     <span className={`relative block overflow-hidden rounded-xl ring-1 ring-inset ring-black/10 ${className}`} style={{ background: backdrop }}>
       {/* eslint-disable-next-line @next/next/no-img-element -- static preview picture of the 3D room */}
       <img alt="" className="size-full object-contain" src={src} />
-    </span>
-  );
-}
-
-function Avatar({ name, tone }: { name: string; tone: string }) {
-  return (
-    <span aria-hidden="true" className="font-display flex size-12 shrink-0 items-center justify-center rounded-full text-lg text-white" style={{ background: tone }}>
-      {name.charAt(0)}
     </span>
   );
 }
@@ -211,7 +204,7 @@ export function RoomForm({ mode, room, cancelHref, members = [] }: RoomFormProps
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
               {members.map((member) => (
                 <div className="flex items-center gap-3" key={member.user_id}>
-                  <Avatar name={member.display_name} tone={member.role === "owner" ? "#2f5a4a" : "#8a7f9c"} />
+                  <ProfileAvatar className={`size-12 text-lg ${member.role === "owner" ? "bg-[var(--color-green)]" : "bg-[#8a7f9c]"}`} name={member.display_name} src={member.avatar_url} />
                   <div>
                     <p className="text-sm font-semibold text-[var(--color-ink)]">{member.display_name}</p>
                     {member.role === "owner" ? (
