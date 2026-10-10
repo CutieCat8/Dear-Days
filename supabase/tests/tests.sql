@@ -624,6 +624,8 @@ begin
   perform t.throws(format('select public.set_frame_layout(%L, %L::jsonb)', room, format('{"a":%s}', to_json((select mt from frctx)))), 'VALIDATION_ERROR');
   perform t.throws(format('select public.set_frame_layout(%L, %L::jsonb)', room, '{"bad slot!":"x"}'), 'VALIDATION_ERROR');
   perform t.throws(format('select public.set_frame_layout(%L, %L::jsonb)', room, '[]'), 'VALIDATION_ERROR');
+  perform t.throws(format('select public.set_frame_layout(%L, %L::jsonb)', room, (select jsonb_object_agg('s' || g, (select m1 from frctx)) from generate_series(1, 41) g)::text), 'VALIDATION_ERROR');
+  perform t.eq((select count(*) from public.room_frame_slots where room_id = room), 2::bigint, 'an oversized layout is refused and keeps the previous arrangement');
   perform t.throws(format('insert into public.room_frame_slots (room_id, slot_id, memory_id) values (%L, ''z'', %L)', room, (select m1 from frctx)), 'permission denied');
   perform t.throws(format('delete from public.room_frame_slots where room_id = %L', room), 'permission denied');
 end $$;
@@ -675,5 +677,33 @@ do $$ begin
   perform t.eq((select count(*) from public.room_frame_slots where room_id = (select room::uuid from frctx)), 0::bigint, 'deleting the memory frees its frame');
 end $$;
 commit;
+
+-- ---------------------------------------------------------------- 14. table privileges of the API roles (no leftover defaults)
+do $$
+declare
+  r record;
+begin
+  for r in
+    select c.relname, c.relkind
+    from pg_class c join pg_namespace n on n.oid = c.relnamespace
+    where n.nspname = 'public' and c.relkind in ('r', 'v')
+  loop
+    -- nothing at all for a signed-out visitor
+    perform t.eq(
+      (has_table_privilege('anon', format('public.%I', r.relname), 'SELECT') or has_table_privilege('anon', format('public.%I', r.relname), 'INSERT')
+       or has_table_privilege('anon', format('public.%I', r.relname), 'UPDATE') or has_table_privilege('anon', format('public.%I', r.relname), 'DELETE')
+       or has_table_privilege('anon', format('public.%I', r.relname), 'TRUNCATE')),
+      false, 'anon has no privilege on ' || r.relname);
+    -- signed-in users: read, never TRUNCATE / REFERENCES / TRIGGER, never table-wide INSERT or UPDATE (writes go through RPCs or column grants)
+    perform t.eq(has_table_privilege('authenticated', format('public.%I', r.relname), 'SELECT'), true, 'authenticated can read ' || r.relname);
+    perform t.eq(
+      (has_table_privilege('authenticated', format('public.%I', r.relname), 'TRUNCATE') or has_table_privilege('authenticated', format('public.%I', r.relname), 'REFERENCES')
+       or has_table_privilege('authenticated', format('public.%I', r.relname), 'TRIGGER') or has_table_privilege('authenticated', format('public.%I', r.relname), 'INSERT')
+       or has_table_privilege('authenticated', format('public.%I', r.relname), 'UPDATE')),
+      false, 'authenticated has no TRUNCATE/REFERENCES/TRIGGER/INSERT/table-wide UPDATE on ' || r.relname);
+    -- DELETE only where the app deletes through RLS: rooms (owner) and memories (author)
+    perform t.eq(has_table_privilege('authenticated', format('public.%I', r.relname), 'DELETE'), r.relname in ('rooms', 'memories'), 'DELETE privilege on ' || r.relname);
+  end loop;
+end $$;
 
 \echo 'ALL DATABASE TESTS PASSED'

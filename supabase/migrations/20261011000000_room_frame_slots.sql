@@ -1,6 +1,5 @@
 -- Lets the members of a room choose which photo memory hangs in which 3D picture frame.
 -- A row pins one memory to one frame slot; frames without a row are still filled automatically by the app.
--- NOT applied to the hosted project yet: see docs/SUPABASE-HANDOFF.md.
 
 create table public.room_frame_slots (
   room_id uuid not null,
@@ -49,6 +48,11 @@ begin
     raise exception 'FORBIDDEN' using errcode = 'P0001';
   end if;
   if p_layout is null or jsonb_typeof(p_layout) <> 'object' then
+    raise exception 'VALIDATION_ERROR' using errcode = '22P02';
+  end if;
+
+  -- refuse an oversized layout before doing any work (a room has far fewer frames than this)
+  if (select count(*) from jsonb_object_keys(p_layout)) > 40 then
     raise exception 'VALIDATION_ERROR' using errcode = '22P02';
   end if;
 
