@@ -147,6 +147,32 @@ Required verification before hosted apply remains: `npm run test:db`, a local Su
 `npm run test:integration`. The added checks cover owner replacement ordering, old-object cleanup, a shared-room reader,
 an outsider, private public-URL behavior, and attempts to insert/update/delete objects under another user's path.
 
+## Pending hosted migration: memory favorites
+
+`20261011000300_memory_favorites.sql` is intentionally **not applied to hosted** on `feat/memory-books`. It adds
+`public.memory_favorites` (`user_id`, `memory_id`, `room_id`, `created_at`), primary key `(user_id, memory_id)` so a
+person can star a memory once, and a composite foreign key `(memory_id, room_id) -> memories (id, room_id)` with
+`on delete cascade` (deleting a memory removes its stars; a star can only point at a memory of its own room). The table is
+**personal**: the only policy is `select ... using (user_id = auth.uid() and is_room_member(room_id))`, so nobody sees
+anyone else's stars and a person who leaves or is removed from a room stops reading theirs (they come back with the
+membership). `authenticated` has `SELECT` only; writes go through `set_memory_favorite(p_room_id, p_memory_id,
+p_favorite)`, a `SECURITY DEFINER` RPC that requires a session and membership, answers `NOT_FOUND` for a memory outside the
+room, and is idempotent (starring twice or un-starring something not starred is not an error). `anon` has no access.
+
+Checked locally with `npm run test:db` (new section 13b in `supabase/tests/tests.sql`, plus the table-privilege sweep in
+section 14): one row per user + memory, owner and partner stars are independent, outsider and anon are refused, direct
+INSERT/DELETE denied, a removed member reads none, deleting a memory removes its stars. Not run against hosted.
+
+Until it is applied the app still works: the room page cannot read the stars, so the star buttons are disabled with a
+tooltip (never shown as "nothing starred"), and the Highlights book reports the error with a retry button.
+
+To apply (in this order, after the pending `profile_media` migration if that has not gone out yet):
+```
+npx supabase db push --dry-run     # must list ...0300_memory_favorites (and ...0200_profile_media if still pending)
+npx supabase db push               # never `db reset` on hosted
+npm run gen:types                  # only against a local stack; src/lib/supabase/database.types.ts is already hand-updated
+```
+
 ## After pulling
 ```
 git fetch origin

@@ -30,6 +30,7 @@ Dear Days เป็นเว็บแอปไดอารี่ส่วนต�
 - tags แยก `person` และ `place` ภายในแต่ละห้อง
 - Gallery สำหรับค้นหา กรอง และดูความทรงจำตามปฏิทิน
 - ห้องพิพิธภัณฑ์ 3D บน desktop และ card layout ที่อ่านง่ายบน mobile
+- หนังสือ 3 เล่มบนตู้ในห้อง 3D (Monthly, Yearbook, Highlights) เปิดอ่านแบบ flipbook ได้; Highlights คือความทรงจำที่ผู้ใช้กดดาวเอง (เป็นของแต่ละคน)
 - รองรับ keyboard interaction, loading, empty, error และ not-found states
 - สลับระหว่าง mock data แบบ read-only กับ Supabase data จริงได้อย่างชัดเจน
 

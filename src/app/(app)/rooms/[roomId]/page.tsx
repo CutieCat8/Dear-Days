@@ -25,9 +25,10 @@ export default async function RoomPage({ params }: RoomPageProps) {
   }
 
   // A missing or unreadable layout must never break the room: the frames then fill automatically.
-  const assignments = await source.listFrameAssignments(room.id);
+  // Favorites are different: if they cannot be read the stars are switched off (null), never shown as "nothing starred".
+  const [assignments, favorites] = await Promise.all([source.listFrameAssignments(room.id), source.listFavoriteMemoryIds(room.id)]);
   const framePins = Object.fromEntries((assignments.ok ? assignments.data : []).map((item) => [item.slot_id, item.memory_id]));
 
   const viewer = await getViewer();
-  return <MuseumRoom canEditRoom={viewer?.id === room.owner_id} framePins={framePins} memories={memories} room={room} total={total} />;
+  return <MuseumRoom canEditRoom={viewer?.id === room.owner_id} favoriteIds={favorites.ok ? favorites.data : null} framePins={framePins} memories={memories} room={room} total={total} />;
 }

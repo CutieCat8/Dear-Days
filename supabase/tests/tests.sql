@@ -678,6 +678,86 @@ do $$ begin
 end $$;
 commit;
 
+-- ---------------------------------------------------------------- 13b. personal favourites ("Highlights" book)
+begin;
+select t.as_user('owner') as u \gset
+do $$
+declare room uuid := (select room::uuid from frctx);
+begin
+  perform public.set_memory_favorite(room, (select m2::uuid from frctx), true);
+  perform public.set_memory_favorite(room, (select m2::uuid from frctx), true);
+  perform t.eq((select count(*) from public.memory_favorites), 1::bigint, 'starring twice keeps one row per user + memory');
+  perform public.set_memory_favorite(room, (select mt::uuid from frctx), true);
+  perform t.eq((select count(*) from public.memory_favorites), 2::bigint, 'owner stars a second memory');
+  perform t.throws(format('select public.set_memory_favorite(%L, %L, true)', room, gen_random_uuid()), 'NOT_FOUND');
+  perform t.throws(format('select public.set_memory_favorite(%L, %L, null)', room, (select m2 from frctx)), 'VALIDATION_ERROR');
+  perform t.throws(format('insert into public.memory_favorites (user_id, memory_id, room_id) values (auth.uid(), %L, %L)', (select m2 from frctx), room), 'permission denied');
+  perform t.throws('delete from public.memory_favorites', 'permission denied');
+end $$;
+commit;
+
+-- favourites are personal: the other member sees none of the owner's and keeps their own separately
+begin;
+select t.as_user('partner') as u \gset
+do $$
+declare room uuid := (select room::uuid from frctx);
+begin
+  perform t.eq((select count(*) from public.memory_favorites), 0::bigint, 'a member does not see the other member''s favourites');
+  perform public.set_memory_favorite(room, (select m2::uuid from frctx), true);
+  perform t.eq((select count(*) from public.memory_favorites), 1::bigint, 'member stars their own favourite');
+  perform public.set_memory_favorite(room, (select m2::uuid from frctx), false);
+  perform public.set_memory_favorite(room, (select m2::uuid from frctx), false);
+  perform t.eq((select count(*) from public.memory_favorites), 0::bigint, 'un-starring is idempotent and only touches the caller');
+end $$;
+commit;
+
+begin;
+select t.as_user('owner') as u \gset
+do $$ begin
+  perform t.eq((select count(*) from public.memory_favorites), 2::bigint, 'the owner''s favourites are untouched by the other member');
+end $$;
+rollback;
+
+begin;
+select t.as_user('outsider') as u \gset
+do $$
+declare room uuid := (select room::uuid from frctx);
+begin
+  perform t.eq((select count(*) from public.memory_favorites), 0::bigint, 'outsider sees no favourites');
+  perform t.throws(format('select public.set_memory_favorite(%L, %L, true)', room, (select m2 from frctx)), 'FORBIDDEN');
+end $$;
+rollback;
+
+begin;
+select t.as_anon() as u \gset
+do $$ begin
+  perform t.throws(format('select public.set_memory_favorite(%L, %L, true)', (select room from frctx), (select m2 from frctx)), 'permission denied');
+  perform t.throws('select * from public.memory_favorites', 'permission denied');
+end $$;
+rollback;
+
+-- losing access to the room hides your favourites; they come back with the membership
+begin;
+select t.as_user('owner') as u \gset
+do $$ begin
+  perform public.set_memory_favorite((select room::uuid from frctx), (select m2::uuid from frctx), true);
+  perform public.remove_room_member((select room::uuid from frctx), current_setting('t.partner')::uuid);
+end $$;
+select t.as_user('partner') as u \gset
+do $$ begin
+  perform t.eq((select count(*) from public.memory_favorites), 0::bigint, 'a removed member no longer reads favourites');
+end $$;
+rollback;
+
+-- deleting a memory removes the favourites that point at it
+begin;
+reset role;
+delete from public.memories where id = (select mt::uuid from frctx);
+do $$ begin
+  perform t.eq((select count(*) from public.memory_favorites where memory_id = (select mt::uuid from frctx)), 0::bigint, 'deleting the memory removes its favourites');
+end $$;
+commit;
+
 -- ---------------------------------------------------------------- 14. table privileges of the API roles (no leftover defaults)
 do $$
 declare

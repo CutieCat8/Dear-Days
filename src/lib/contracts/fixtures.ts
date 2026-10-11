@@ -69,6 +69,9 @@ export const mockTags: Tag[] = demoMuseumTags;
 
 export const mockMemories: Memory[] = demoMuseumMemories;
 
+/** Demo-mode Highlights of the signed-in demo person (read-only, like everything else in demo mode). */
+export const mockFavoriteMemoryIds: string[] = [1, 5, 9, 12].map((n) => `41000000-0000-4000-8000-${String(n).padStart(12, "0")}`);
+
 export const mockMemoryCreateInput = {
   title: "Friday evening",
   body: "We walked back to the dorm together and stopped for ice cream.",

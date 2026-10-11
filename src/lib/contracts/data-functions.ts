@@ -65,6 +65,19 @@ export interface DearDaysDataSource {
    */
   setFrameLayout(roomId: string, layout: Record<string, string>): Promise<DataResult<FrameAssignment[]>>;
 
+  /**
+   * The caller's own favourites ("Highlights") in a room: personal, never the other member's. Ids only, cheap.
+   * Non-member → FORBIDDEN is not raised here: a person who cannot see the room simply has none.
+   */
+  listFavoriteMemoryIds(roomId: string): Promise<DataResult<string[]>>;
+  /** The caller's own favourite memories of a room (all of them, not one page), oldest memory first. */
+  listFavoriteMemories(roomId: string): Promise<DataResult<Memory[]>>;
+  /**
+   * Any member, for themselves only. Stars or un-stars a memory of this room; repeating the same call is harmless.
+   * Non-member → FORBIDDEN; memory not in this room → NOT_FOUND.
+   */
+  setMemoryFavorite(roomId: string, memoryId: string, favorite: boolean): Promise<DataResult<{ memory_id: string; favorite: boolean }>>;
+
   listTags(roomId: string): Promise<DataResult<Tag[]>>;
   upsertTags(roomId: string, tags: TagInput[]): Promise<DataResult<Tag[]>>;
 }
