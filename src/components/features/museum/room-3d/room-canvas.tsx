@@ -4,11 +4,13 @@ import { Canvas } from "@react-three/fiber";
 import { memo, useEffect, useMemo, type MutableRefObject } from "react";
 import { NeutralToneMapping } from "three";
 
+import type { BookKind } from "@/lib/books/books";
 import type { Memory } from "@/lib/contracts/types";
 
 import { CameraController, type CameraApi, type CameraState, type SceneLayout } from "./camera-controller";
 import { CAMERA, cameraDirection, ROOM_CENTER } from "./config";
-import { DiaryObject, FrameObject } from "./display-items";
+import { Books } from "./books";
+import { FrameObject } from "./display-items";
 import { Furniture } from "./furniture";
 import { Lighting } from "./lighting";
 import { createMaterials, MaterialsContext } from "./materials";
@@ -22,6 +24,8 @@ export type RoomCanvasProps = {
   pins: FramePins;
   selectedId: string | null;
   onSelect: (id: string) => void;
+  /** The person clicked one of the three books on the coffee table. */
+  onOpenBook: (kind: BookKind) => void;
   /** Filled with the camera controls (focus wall, back, reset, zoom) once the canvas is ready. */
   apiRef: MutableRefObject<CameraApi | null>;
   onStateChange: (state: CameraState) => void;
@@ -60,7 +64,7 @@ function SelectionLight({ frames, diaries, selectedId }: { frames: ReturnType<ty
   return <pointLight color="#ffd9a0" decay={2} distance={2} intensity={selectedId ? 1.5 : 0} position={position} />;
 }
 
-const Scene = memo(function Scene({ memories, pins, selectedId, onSelect, onImageError }: Omit<RoomCanvasProps, "apiRef" | "onStateChange" | "getLayout" | "onReady">) {
+const Scene = memo(function Scene({ memories, pins, selectedId, onSelect, onOpenBook, onImageError }: Omit<RoomCanvasProps, "apiRef" | "onStateChange" | "getLayout" | "onReady">) {
   const materials = useMemo(() => createMaterials(), []);
   const { frames, diaries } = useMemo(() => assignMemories(memories, pins), [memories, pins]);
 
@@ -69,13 +73,11 @@ const Scene = memo(function Scene({ memories, pins, selectedId, onSelect, onImag
       <Lighting />
       <RoomShell />
       <Furniture />
+      <Books onOpen={onOpenBook} />
       <OutsideFoliage />
       <SelectionLight diaries={diaries} frames={frames} selectedId={selectedId} />
       {frames.map((assignment) => (
         <FrameObject assignment={assignment} key={assignment.slot.id} onImageError={onImageError} onSelect={onSelect} selectedId={selectedId} />
-      ))}
-      {diaries.map((assignment) => (
-        <DiaryObject assignment={assignment} key={assignment.slot.id} onSelect={onSelect} selectedId={selectedId} />
       ))}
     </MaterialsContext.Provider>
   );
@@ -93,7 +95,7 @@ const INITIAL_CAMERA = {
   ] as [number, number, number],
 };
 
-export default function RoomCanvas({ memories, pins, selectedId, onSelect, apiRef, onStateChange, getLayout, onReady, onImageError }: RoomCanvasProps) {
+export default function RoomCanvas({ memories, pins, selectedId, onSelect, onOpenBook, apiRef, onStateChange, getLayout, onReady, onImageError }: RoomCanvasProps) {
   return (
     <Canvas
       camera={INITIAL_CAMERA}
@@ -108,7 +110,7 @@ export default function RoomCanvas({ memories, pins, selectedId, onSelect, apiRe
       shadows="percentage"
     >
       <CameraController apiRef={apiRef} getLayout={getLayout} onStateChange={onStateChange}>
-        <Scene memories={memories} pins={pins} onImageError={onImageError} onSelect={onSelect} selectedId={selectedId} />
+        <Scene memories={memories} pins={pins} onImageError={onImageError} onOpenBook={onOpenBook} onSelect={onSelect} selectedId={selectedId} />
         <Ready onReady={onReady} />
       </CameraController>
     </Canvas>

@@ -17,6 +17,9 @@ import { fail, failFrom, ok } from "./result";
 export const SIGNED_URL_SECONDS = 60 * 60;
 /** Remove at most this many objects per Storage call. */
 const REMOVE_CHUNK = 100;
+/** Favourite ids read per request, and memories loaded per request when opening the Highlights book. */
+const FAVORITE_PAGE = 500;
+const FAVORITE_CHUNK = 100;
 
 function fieldErrors(error: { issues: { path: PropertyKey[]; message: string }[] }) {
   const out: Record<string, string[]> = {};
@@ -308,6 +311,50 @@ export class SupabaseDataSource implements DearDaysDataSource {
     const { error } = await this.client.rpc("set_frame_layout", { p_room_id: roomId, p_layout: layout });
     if (error) return failFrom(error);
     return ok(Object.entries(layout).map(([slot_id, memory_id]) => ({ slot_id, memory_id })));
+  }
+
+  async listFavoriteMemoryIds(roomId: string): Promise<DataResult<string[]>> {
+    const userId = await this.userId();
+    if (!userId) return fail("UNAUTHENTICATED", "Please sign in to continue.");
+    const ids: string[] = [];
+    // PostgREST caps one response (1000 rows by default): keep reading until a short page, never assume the first page is all
+    for (let from = 0; ; from += FAVORITE_PAGE) {
+      const { data, error } = await this.client
+        .from("memory_favorites")
+        .select("memory_id")
+        .eq("room_id", roomId)
+        .eq("user_id", userId)
+        .order("created_at", { ascending: false })
+        .order("memory_id")
+        .range(from, from + FAVORITE_PAGE - 1);
+      if (error) return failFrom(error);
+      ids.push(...data.map((row) => row.memory_id));
+      if (data.length < FAVORITE_PAGE) break;
+    }
+    return ok(ids);
+  }
+
+  async listFavoriteMemories(roomId: string): Promise<DataResult<Memory[]>> {
+    const favorites = await this.listFavoriteMemoryIds(roomId);
+    if (!favorites.ok) return favorites;
+    const memories: Memory[] = [];
+    for (let i = 0; i < favorites.data.length; i += FAVORITE_CHUNK) {
+      const chunk = favorites.data.slice(i, i + FAVORITE_CHUNK);
+      const { data, error } = await this.client.from("memories").select(MEMORY_SELECT).eq("room_id", roomId).in("id", chunk);
+      if (error) return failFrom(error);
+      const rows = data as unknown as MemoryRow[];
+      const urls = await this.signedUrls(mediaPaths(rows));
+      memories.push(...rows.map((row) => memoryFromRow(row, urls)));
+    }
+    memories.sort((a, b) => a.memory_date.localeCompare(b.memory_date) || a.created_at.localeCompare(b.created_at) || a.id.localeCompare(b.id));
+    return ok(memories);
+  }
+
+  async setMemoryFavorite(roomId: string, memoryId: string, favorite: boolean): Promise<DataResult<{ memory_id: string; favorite: boolean }>> {
+    if (!(await this.userId())) return fail("UNAUTHENTICATED", "Please sign in to continue.");
+    const { error } = await this.client.rpc("set_memory_favorite", { p_room_id: roomId, p_memory_id: memoryId, p_favorite: favorite });
+    if (error) return failFrom(error);
+    return ok({ memory_id: memoryId, favorite });
   }
 
   async listTags(roomId: string): Promise<DataResult<Tag[]>> {

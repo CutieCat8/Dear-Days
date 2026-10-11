@@ -63,6 +63,26 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"memory_favorites": {
+                  Row: {
+                    "created_at": string,"memory_id": string,"room_id": string,"user_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "created_at"?: string,"memory_id": string,"room_id": string,"user_id": string
+                  }
+                  Update: {
+                    "created_at"?: string,"memory_id"?: string,"room_id"?: string,"user_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "memory_favorites_memory_fkey"
+      columns: ["memory_id","room_id"]
+isOneToOne: false
+      referencedRelation: "memories"
+      referencedColumns: ["id","room_id"]
+    }
+                  ]
                 },"memory_media": {
                   Row: {
                     "alt_text": string,"created_at": string,"id": string,"memory_id": string,"mime_type": string,"position": number,"size_bytes": number,"storage_path": string
@@ -287,6 +307,9 @@ isOneToOne: false
                            },
 "set_frame_layout":
 { Args: { "p_layout": Json,"p_room_id": string }; Returns: undefined
+                           },
+"set_memory_favorite":
+{ Args: { "p_favorite": boolean,"p_memory_id": string,"p_room_id": string }; Returns: undefined
                            },
 "shares_room_with":
 { Args: { "p_user_id": string }; Returns: boolean

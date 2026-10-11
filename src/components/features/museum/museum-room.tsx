@@ -6,6 +6,10 @@ import { EditIcon, GridIcon, PlusIcon } from "@/components/shared/icons";
 import { THEME_LABELS } from "@/components/shared/room-cover";
 import type { Memory, Room } from "@/lib/contracts/types";
 
+import { BookShelf } from "@/components/features/books/book-shelf";
+import { RoomBooksProvider } from "@/components/features/books/room-books";
+import { yearsOf } from "@/lib/books/period";
+
 import { MemoryCard } from "./memory-card";
 import { MuseumScene } from "./museum-scene";
 import type { FramePins } from "./room-3d/slots";
@@ -19,12 +23,16 @@ type MuseumRoomProps = {
   framePins?: FramePins;
   /** Only the owner can edit the room. */
   canEditRoom?: boolean;
+  /** The signed-in person's own starred memories of this room; null when they could not be read. */
+  favoriteIds?: string[] | null;
 };
 
-export function MuseumRoom({ room, memories, total = memories.length, canEditRoom = false, framePins = {} }: MuseumRoomProps) {
+export function MuseumRoom({ room, memories, total = memories.length, canEditRoom = false, framePins = {}, favoriteIds = [] }: MuseumRoomProps) {
   const basePath = `/rooms/${room.id}`;
+  const yearAnchors = [...new Set([...yearsOf(memories), Number(room.created_at.slice(0, 4))])];
 
   return (
+    <RoomBooksProvider initialFavoriteIds={favoriteIds} key={room.id} roomId={room.id} roomName={room.name} yearAnchors={yearAnchors}>
     <article className="pb-6 lg:flex lg:min-h-[calc(100dvh-3rem)] lg:flex-col lg:pb-0">
       <Breadcrumbs items={[{ label: "My rooms", href: "/" }, { label: room.name }]} />
 
@@ -53,7 +61,11 @@ export function MuseumRoom({ room, memories, total = memories.length, canEditRoo
             <MuseumScene initialPins={framePins} memories={memories} roomId={room.id} />
           </section>
 
-          <section aria-labelledby="mobile-memories-heading" className="lg:hidden">
+          <div className="lg:hidden">
+            <BookShelf />
+          </div>
+
+          <section aria-labelledby="mobile-memories-heading" className="mt-6 lg:hidden">
             <div className="mb-3 flex items-end justify-between gap-3">
               <h2 className="title-md" id="mobile-memories-heading">Memories in this room</h2>
               <span className="text-xs text-[var(--color-muted)]">{memories.length} items</span>
@@ -65,6 +77,7 @@ export function MuseumRoom({ room, memories, total = memories.length, canEditRoo
         </>
       )}
     </article>
+    </RoomBooksProvider>
   );
 }
 

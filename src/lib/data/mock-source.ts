@@ -1,10 +1,14 @@
 import type { DearDaysDataSource } from "@/lib/contracts/data-functions";
-import { mockCurrentProfile, mockFriends, mockMemories, mockRoomMembers, mockRooms, mockTags } from "@/lib/contracts/fixtures";
+import { mockCurrentProfile, mockFavoriteMemoryIds, mockFriends, mockMemories, mockRoomMembers, mockRooms, mockTags } from "@/lib/contracts/fixtures";
 import type { DataResult, FrameAssignment, FriendsOverview, Memory, MemoryListParams, Paginated, Profile, Room, RoomMemberView, Tag } from "@/lib/contracts/types";
 
 import { fail, ok } from "./result";
 
 const READ_ONLY = "Demo mode is read-only. Set NEXT_PUBLIC_DATA_MODE=supabase (and the Supabase keys) to save data.";
+
+function mockFavoriteMemories(roomId: string): Memory[] {
+  return mockMemories.filter((memory) => memory.room_id === roomId && mockFavoriteMemoryIds.includes(memory.id)).sort((a, b) => a.memory_date.localeCompare(b.memory_date));
+}
 
 /** Read-only demo data. Selected only with DEAR_DAYS_DATA_MODE=mock; never used as a fallback in real mode. */
 export class MockDataSource implements DearDaysDataSource {
@@ -105,6 +109,18 @@ export class MockDataSource implements DearDaysDataSource {
   }
 
   async setFrameLayout(): Promise<DataResult<FrameAssignment[]>> {
+    return fail("INTERNAL_ERROR", READ_ONLY);
+  }
+
+  async listFavoriteMemoryIds(roomId: string): Promise<DataResult<string[]>> {
+    return ok(mockFavoriteMemories(roomId).map((memory) => memory.id));
+  }
+
+  async listFavoriteMemories(roomId: string): Promise<DataResult<Memory[]>> {
+    return ok(mockFavoriteMemories(roomId));
+  }
+
+  async setMemoryFavorite(): Promise<DataResult<{ memory_id: string; favorite: boolean }>> {
     return fail("INTERNAL_ERROR", READ_ONLY);
   }
 

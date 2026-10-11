@@ -8,6 +8,8 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 
 import { ArrowLeftIcon, ArrowRightIcon, BookIcon, CloseIcon, PinIcon } from "@/components/shared/icons";
 import { useSceneHost } from "@/components/layout/scene-host";
+import { RoomMemoryStar } from "@/components/features/books/favorite-button";
+import { useRoomBooks } from "@/components/features/books/room-books";
 import { MoodBadge } from "@/components/shared/mood-badge";
 import type { Memory } from "@/lib/contracts/types";
 import { createBrowserDataSource } from "@/lib/data/browser";
@@ -65,6 +67,7 @@ function SceneFallback({ memories }: { memories: Memory[] }) {
 
 export function MuseumScene({ memories: loaded, roomId, initialPins }: MuseumSceneProps) {
   const memories = useFreshMemories(loaded);
+  const { openBook } = useRoomBooks();
   const [pins, setPins] = useState<FramePins>(initialPins);
   const [arranging, setArranging] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -161,7 +164,7 @@ export function MuseumScene({ memories: loaded, roomId, initialPins }: MuseumSce
   const canvasNode = (
     <div className={styles.canvasWrap}>
       <SceneErrorBoundary fallback={<SceneFallback memories={shown} />}>
-        <RoomCanvas memories={memories} apiRef={cameraRef} getLayout={getLayout} onImageError={handleImageError} onStateChange={setCamera} onReady={handleReady} onSelect={setSelectedId} pins={pins} selectedId={selectedId} />
+        <RoomCanvas memories={memories} apiRef={cameraRef} getLayout={getLayout} onImageError={handleImageError} onOpenBook={openBook} onStateChange={setCamera} onReady={handleReady} onSelect={setSelectedId} pins={pins} selectedId={selectedId} />
       </SceneErrorBoundary>
     </div>
   );
@@ -217,7 +220,7 @@ export function MuseumScene({ memories: loaded, roomId, initialPins }: MuseumSce
             )}
           </div>
           {arranging && <p className={styles.hint}>Click a frame to choose which photo hangs in it.</p>}
-          <p className={styles.hint}>{mode === "overview" ? "Drag to rotate · Shift+drag or right-drag to move · Scroll to zoom" : "Drag to slide the wall · Scroll to zoom"}</p>
+          <p className={styles.hint}>{mode === "overview" ? "Drag to rotate · Shift+drag or right-drag to move · Scroll to zoom · Click the three books on the sideboard to read them" : "Drag to slide the wall · Scroll to zoom"}</p>
         </div>
       )}
 
@@ -280,7 +283,10 @@ function MemoryPanel({ memory, onClose, onStep }: { memory: Memory; onClose: () 
           </div>
         </div>
 
-        {memory.mood && <div><MoodBadge mood={memory.mood} /></div>}
+        <div className="flex flex-wrap items-center gap-2">
+          {memory.mood && <MoodBadge mood={memory.mood} />}
+          <RoomMemoryStar memoryId={memory.id} title={memory.title} />
+        </div>
 
         <p className={styles.excerpt}>{memory.body}</p>
 

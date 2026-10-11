@@ -4,6 +4,18 @@
 
 เปลี่ยนขอบเขต T17 จาก CSS/SVG 2.5D เป็น **3D จริง** (Three.js + React Three Fiber + Drei) เฉพาะ `/rooms/[roomId]` — ซีอนุมัติแล้ว บันทึกใน Task Breakdown, Proposal, `CONTRACTS.md`, `UI-GUIDE.md`
 
+## หนังสือ 3 เล่ม + reader แบบ flipbook (branch `feat/memory-books`, ล่าสุด)
+
+หนังสือ 3 เล่มที่ตั้งพิงผนังบนตู้ยาว (แทนที่ไดอารี่ 3 เล่มเดิม; ความทรงจำข้อความล้วนอ่านได้ในหนังสือ แกลเลอรี และรายการเลือกด้วยคีย์บอร์ด แต่ไม่มีวัตถุในฉาก 3D แล้ว; เล่มบนโต๊ะกาแฟกลับเป็นของตกแต่งเหมือนเดิม) กดเปิดได้จริง: **Monthly** (เดือนที่เลือก เริ่มที่เดือนปัจจุบันของผู้ใช้ มีปฏิทินสารบัญ), **Yearbook** (ปีที่เลือก: สารบัญเดือน, หน้าสถิติ, หน้ารวมปกแต่ละเดือน, ตัวคั่นเดือน) และ **Highlights** (ความทรงจำที่ผู้ใช้กดดาวเอง กรองเดือน/ปีได้) กดหนังสือในฉากหรือปุ่ม "Monthly / Yearbook / Highlights" ใต้ toolbar ของฉาก (mobile: ชั้นหนังสือ 3 ปกเหนือรายการความทรงจำ) แล้วเปิด reader overlay เหนือห้อง
+
+- **ไฟล์**: `src/lib/books/*` (logic ล้วน มี unit test: ช่วงเดือน/ปี, pagination, แบ่งหน้า, template รูป, สถิติ), `src/components/features/books/*` (reader, flip engine CSS 3D, หน้ากระดาษ, กรอบรูป, ปุ่มดาว, provider), `room-3d/books.tsx` (หนังสือ 3D), migration `20261011000300_memory_favorites.sql`
+- **ไม่ได้เพิ่ม library**: flipbook เขียนเองด้วย CSS 3D (`rotateY` + `backface-visibility`) เพราะต้องคุมการตัดข้อความเป็นหน้าด้วยการวัดจริงและต้องไม่ดึง dependency ใหม่ (ไลบรารีพลิกหน้าสำเร็จรูปมักต้องการหน้าขนาดคงที่ ไม่ตรงกับข้อความยาวที่แตกหน้า) ปิดแอนิเมชันเมื่อ `prefers-reduced-motion`
+- **Reader ไม่แตะฉาก 3D**: เป็น portal ระดับ `document.body` (z-200) ฉากด้านหลังไม่ unmount; wheel/touch ถูกบล็อกที่ overlay, Escape ถูกจับก่อน handler ของฉาก (capture + stopPropagation) ปิดแล้ว focus กลับตัวเดิม ไม่มีการ lock scroll ของหน้า (กัน scrollbar หายแล้ว canvas เปลี่ยนขนาด/กล้องขยับ)
+- **ข้อมูล**: Monthly/Yearbook ดึงจาก `memories` เดิมผ่าน `listAllMemories` (อ่านทุกหน้า page_size 50 ตามช่วง `date_from/date_to`) ไม่ copy ลงตารางใหม่ เดือน/ปีจัดจากข้อความ `YYYY-MM-DD` ไม่ผ่าน Date/เขตเวลา เดือนเริ่มต้นใช้ `localDateString()` ที่ repo มีอยู่ Highlights ใช้ `listFavoriteMemories` (ของผู้ใช้เอง) คำขอเก่าที่ตอบช้าไม่ถูกแสดง (key ต่อ ห้อง+เล่ม+ช่วงเวลา) signed URL ไม่ถูกเก็บถาวร (cache ในหน่วยความจำ ≤30 นาที แล้วอ่านใหม่)
+- **Favorites**: ตาราง `memory_favorites` เป็นของแต่ละผู้ใช้ (unique `user_id + memory_id`) ดูรายละเอียด RLS/RPC และขั้นตอน apply ใน `docs/SUPABASE-HANDOFF.md` ("Pending hosted migration: memory favorites") ปุ่มดาวอยู่ที่หน้า memory, แผงข้างฉาก 3D และในหน้าหนังสือ โหมด demo (mock) อ่านอย่างเดียว: มี 4 ดาวตัวอย่าง กดดาวแล้วขึ้นข้อความ read-only
+- **เลย์เอาท์รูป**: ตาราง template เดียวใน `src/lib/books/photo-layout.ts` (8 รูป = ซ้าย 3 เล็ก | กลาง 2 ใหญ่ | ขวา 3 เล็ก ทุกคอลัมน์สูงเท่ากัน ช่องไฟเท่ากัน; 1–7 รูปมี template ของตัวเอง ไม่มีการทำรูปซ้ำ) หน้าแคบ (<400px) ที่มี ≥5 รูปจะแยกหน้ารูปออกจากข้อความ ข้อความยาวแตกเป็นหน้าต่อเนื่องโดยวัดกล่องจริง (ซ่อนอยู่ใน overlay) ไม่ตัดทิ้ง ข้อมูลเดโม: ความทรงจำ "Up above the clouds" มี 8 รูป ไว้ดู layout ในโหมด mock
+- **ยังไม่ได้ตรวจด้วยตา** (ตามที่ตกลงไว้ว่าซีเช็ก UI เอง): การพลิกหน้า/เงา, layout 8 รูปเทียบภาพอ้างอิง, ข้อความยาว, mobile, ตำแหน่งและปกหนังสือ 3 เล่มบนตู้ ตรวจแล้วเฉพาะ typecheck, lint, build, unit test (88 ข้อ), db test และ SSR ของหน้าห้อง/หน้า memory ในโหมด mock
+
 ## สถานะรอบที่ 2 (ปรับให้ใกล้ reference)
 
 ทำแล้ว:

@@ -5,6 +5,7 @@ import { Breadcrumbs } from "@/components/shared/breadcrumbs";
 import { BookIcon, CalendarIcon, EditIcon, PinIcon, UsersIcon } from "@/components/shared/icons";
 import { MoodBadge } from "@/components/shared/mood-badge";
 import { RoomCover } from "@/components/shared/room-cover";
+import { MemoryFavoriteButton } from "@/components/features/books/favorite-button";
 import { DeleteMemoryButton } from "@/components/features/memory/delete-memory-button";
 import { getDataSource, getViewer } from "@/lib/data/server";
 import { unwrap } from "@/lib/data/unwrap";
@@ -20,10 +21,11 @@ function formatDate(date: string) {
 export default async function MemoryDetailPage({ params }: MemoryDetailPageProps) {
   const { roomId, memoryId } = await params;
   const source = await getDataSource();
-  const [room, memory, viewer] = await Promise.all([
+  const [room, memory, viewer, favorites] = await Promise.all([
     source.getRoom(roomId).then(unwrap),
     source.getMemory(roomId, memoryId).then(unwrap),
     getViewer(),
+    source.listFavoriteMemoryIds(roomId),
   ]);
   const isAuthor = viewer?.id === memory.author_id;
 
@@ -77,6 +79,10 @@ export default async function MemoryDetailPage({ params }: MemoryDetailPageProps
             <span aria-hidden="true">·</span>
             <MoodBadge mood={memory.mood} />
           </p>
+
+          <div className="mt-4">
+            <MemoryFavoriteButton available={favorites.ok} initialStarred={favorites.ok && favorites.data.includes(memory.id)} memoryId={memory.id} roomId={room.id} title={memory.title} />
+          </div>
 
           <p className="mt-5 whitespace-pre-line text-[0.95rem] leading-7 text-[var(--color-ink)]">{memory.body}</p>
 
