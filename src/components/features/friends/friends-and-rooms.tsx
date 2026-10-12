@@ -6,9 +6,10 @@ import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 
 import { Breadcrumbs } from "@/components/shared/breadcrumbs";
-import { CopyIcon, LinkIcon, LockIcon, MoreIcon, SendIcon, UserPlusIcon, UsersIcon } from "@/components/shared/icons";
+import { CopyIcon, DoorIcon, LinkIcon, LockIcon, MoreIcon, SendIcon, UserPlusIcon, UsersIcon } from "@/components/shared/icons";
 import { ProfileAvatar } from "@/components/shared/profile-avatar";
 import { THEME_LABELS } from "@/components/shared/room-cover";
+import { Dropdown } from "@/components/ui/dropdown";
 import { INVITE_CODE_LENGTH, ROOM_MAX_MEMBERS } from "@/lib/contracts/constants";
 import type { FriendRequestView, FriendsOverview, FriendView, Room } from "@/lib/contracts/types";
 import { createBrowserDataSource } from "@/lib/data/browser";
@@ -161,9 +162,13 @@ export function FriendsAndRooms({ friends, viewerUsername, ownedRooms, initialCo
               <>
                 <div>
                   <label className="field-label" htmlFor="invite-room">Room</label>
-                  <select className="field-input" id="invite-room" onChange={(event) => { setRoomId(event.target.value); setInviteMessage(null); }} value={roomId}>
-                    {ownedRooms.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
-                  </select>
+                  <Dropdown
+                    icon={<DoorIcon />}
+                    id="invite-room"
+                    onChange={(value) => { setRoomId(value); setInviteMessage(null); }}
+                    options={ownedRooms.map((item) => ({ value: item.id, label: item.name }))}
+                    value={roomId}
+                  />
                 </div>
 
                 {room ? (
