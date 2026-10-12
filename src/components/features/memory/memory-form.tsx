@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useSyncExternalStore, type FormEvent, type KeyboardEvent } from "react";
 
 import { Breadcrumbs } from "@/components/shared/breadcrumbs";
+import Calendar from "@/components/ui/calendar-1";
 import { Dropdown } from "@/components/ui/dropdown";
 import { CalendarIcon, CameraIcon, CloseIcon, DoorIcon, EditIcon, FrownIcon, GripIcon, InfoIcon, LeafIcon, LockIcon, MehIcon, PinIcon, SearchIcon, SmileIcon, SparkleIcon, StarIcon, TrashIcon, UsersIcon } from "@/components/shared/icons";
 import { MEDIA_CONSTRAINTS, MOOD_LABELS, MOODS } from "@/lib/contracts/constants";
@@ -29,6 +30,63 @@ const MOOD_ICONS: Record<Mood, typeof SmileIcon> = { awful: FrownIcon, stressed:
 const MAX_BODY = 10_000;
 
 const subscribeNever = () => () => {};
+
+function parseLocalDate(value: string) {
+  const [year, month, day] = value.split("-").map(Number);
+  return year && month && day ? new Date(year, month - 1, day) : undefined;
+}
+
+/** Date field that opens a calendar. Days after `maxDate` (today) are disabled: past days can be filled in, the future cannot. */
+function DatePicker({ id, value, onChange, maxDate }: { id: string; value: string; onChange: (value: string) => void; maxDate: string }) {
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const selected = parseLocalDate(value);
+  const max = parseLocalDate(maxDate);
+
+  useEffect(() => {
+    if (!open) return;
+    const onPointerDown = (event: PointerEvent) => {
+      if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
+    };
+    const onKeyDown = (event: globalThis.KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [open]);
+
+  return (
+    <div className="relative sm:max-w-56" ref={rootRef}>
+      <input name="memory_date" type="hidden" value={value} />
+      <button aria-expanded={open} aria-haspopup="dialog" className="field-input flex items-center gap-2 pl-3 text-left" id={id} onClick={() => setOpen((current) => !current)} type="button">
+        <CalendarIcon aria-hidden="true" className="size-4 shrink-0 text-[var(--color-muted)]" />
+        <span>{selected ? new Intl.DateTimeFormat("en-GB", { day: "2-digit", month: "2-digit", year: "numeric" }).format(selected) : "Select a date"}</span>
+      </button>
+      {open ? (
+        <div aria-label="Choose a date" className="absolute left-0 top-full z-30 mt-1 rounded-xl border border-[var(--color-border)] bg-[var(--color-paper)] p-4 shadow-[var(--shadow-soft)]" role="dialog">
+          <Calendar
+            defaultMonth={selected}
+            disabled={max ? { after: max } : undefined}
+            endMonth={max}
+            mode="single"
+            numberOfMonths={1}
+            onSelect={(day) => {
+              if (!day) return;
+              onChange(localDateString(day));
+              setOpen(false);
+            }}
+            required
+            selected={selected}
+          />
+        </div>
+      ) : null}
+    </div>
+  );
+}
 
 export function MemoryForm({ mode, room: initialRoom, rooms = [initialRoom], memory, tags: knownTags = [] }: MemoryFormProps) {
   const router = useRouter();
@@ -106,6 +164,11 @@ export function MemoryForm({ mode, room: initialRoom, rooms = [initialRoom], mem
     setFormError(null);
     setFieldErrors({});
 
+    if (!date || date > localDateString()) {
+      setFormError(date ? "You cannot write a memory for a day that has not happened yet." : "Choose a date.");
+      return;
+    }
+
     const existingIds = new Set(memory?.media.map((item) => item.id) ?? []);
     const kept = photos.filter((photo) => !photo.file);
     const added = photos.filter((photo): photo is Photo & { file: File } => Boolean(photo.file));
@@ -160,7 +223,7 @@ export function MemoryForm({ mode, room: initialRoom, rooms = [initialRoom], mem
 
         <div>
           <label className="field-label" htmlFor="memory-date">Date</label>
-          <div className="relative sm:max-w-56"><CalendarIcon className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[var(--color-muted)]" /><input className="field-input pl-9 [&::-webkit-calendar-picker-indicator]:hidden" id="memory-date" name="memory_date" onChange={(event) => setDate(event.target.value)} required type="date" value={date} /></div>
+          <DatePicker id="memory-date" maxDate={today} onChange={setDate} value={date} />
         </div>
 
         <div>
