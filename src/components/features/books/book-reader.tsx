@@ -4,6 +4,7 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState, useSyncExtern
 import { createPortal } from "react-dom";
 
 import { ArrowLeftIcon, ArrowRightIcon, CloseIcon } from "@/components/shared/icons";
+import { Dropdown, type DropdownOption } from "@/components/ui/dropdown";
 import { BOOK_INFO, BOOK_KINDS, type BookKind } from "@/lib/books/books";
 import { bookSize, contentsCapacity, pageMetrics } from "@/lib/books/metrics";
 import { buildBook, pagesOfSpread, spreadCount, spreadOfPage, type BookInput, type HighlightFilter } from "@/lib/books/outline";
@@ -19,6 +20,23 @@ import { PhotoLightbox } from "./photo-frame";
 import { useRoomBooks } from "./room-books";
 import { useBookData, type BookSpec } from "./use-book-data";
 import styles from "./books.module.css";
+
+const MONTH_OPTIONS: DropdownOption[] = Array.from({ length: 12 }, (_, i) => ({ value: String(i + 1), label: monthName(i + 1) }));
+
+/** Pill-shaped period picker for the reader's toolbar (the app's Dropdown, sized to sit beside the round buttons). */
+function PeriodDropdown({ label, options, value, onChange, placeholder, disabled }: { label: string; options: DropdownOption[]; value: string; onChange: (value: string) => void; placeholder?: string; disabled?: boolean }) {
+  return (
+    <Dropdown
+      aria-label={label}
+      disabled={disabled}
+      onChange={onChange}
+      options={options}
+      placeholder={placeholder}
+      triggerClassName="!min-h-[34px] !rounded-full !py-0 !pl-3 !pr-2.5 !text-[0.82rem]"
+      value={value}
+    />
+  );
+}
 
 const subscribeMotion = (notify: () => void) => {
   const query = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -318,49 +336,43 @@ export default function BookReader({ initialKind, onClose }: ReaderProps) {
           {kind === "monthly" && (
             <>
               <button aria-label="Previous month" className={styles.roundButton} onClick={() => stepMonth(-1)} type="button"><ArrowLeftIcon className="size-4" /></button>
-              <select aria-label="Month" className={styles.select} onChange={(event) => changeMonthly({ year: monthly.year, month: Number(event.target.value) })} value={monthly.month}>
-                {Array.from({ length: 12 }, (_, i) => <option key={i} value={i + 1}>{monthName(i + 1)}</option>)}
-              </select>
-              <select aria-label="Year" className={styles.select} onChange={(event) => changeMonthly({ year: Number(event.target.value), month: monthly.month })} value={monthly.year}>
-                {years.map((year) => <option key={year} value={year}>{year}</option>)}
-              </select>
+              <PeriodDropdown label="Month" onChange={(value) => changeMonthly({ year: monthly.year, month: Number(value) })} options={MONTH_OPTIONS} value={String(monthly.month)} />
+              <PeriodDropdown label="Year" onChange={(value) => changeMonthly({ year: Number(value), month: monthly.month })} options={years.map((year) => ({ value: String(year), label: String(year) }))} value={String(monthly.year)} />
               <button aria-label="Next month" className={styles.roundButton} onClick={() => stepMonth(1)} type="button"><ArrowRightIcon className="size-4" /></button>
             </>
           )}
           {kind === "yearbook" && (
             <>
               <button aria-label="Previous year" className={styles.roundButton} onClick={() => changeYear(yearbookYear - 1)} type="button"><ArrowLeftIcon className="size-4" /></button>
-              <select aria-label="Year" className={styles.select} onChange={(event) => changeYear(Number(event.target.value))} value={yearbookYear}>
-                {years.map((year) => <option key={year} value={year}>{year}</option>)}
-              </select>
+              <PeriodDropdown label="Year" onChange={(value) => changeYear(Number(value))} options={years.map((year) => ({ value: String(year), label: String(year) }))} value={String(yearbookYear)} />
               <button aria-label="Next year" className={styles.roundButton} onClick={() => changeYear(yearbookYear + 1)} type="button"><ArrowRightIcon className="size-4" /></button>
-              <select
-                aria-label="Jump to month"
-                className={styles.select}
+              <PeriodDropdown
                 disabled={!layout}
-                onChange={(event) => {
-                  const target = layout?.monthPage.get(Number(event.target.value));
+                label="Jump to month"
+                onChange={(value) => {
+                  const target = layout?.monthPage.get(Number(value));
                   if (target !== undefined) setPage(target);
                 }}
+                options={months.flatMap((inMonth, i) => (layout?.monthPage.has(i + 1) ? [{ value: String(i + 1), label: `${monthName(i + 1)}${inMonth.length > 0 ? ` (${inMonth.length})` : ""}` }] : []))}
+                placeholder="Jump to month…"
                 value=""
-              >
-                <option value="">Jump to month…</option>
-                {months.map((inMonth, i) => (
-                  <option disabled={!layout?.monthPage.has(i + 1)} key={i} value={i + 1}>{monthName(i + 1)}{inMonth.length > 0 ? ` (${inMonth.length})` : ""}</option>
-                ))}
-              </select>
+              />
             </>
           )}
           {kind === "highlights" && (
             <>
-              <select aria-label="Year" className={styles.select} onChange={(event) => changeFilter({ ...filter, year: event.target.value === "" ? null : Number(event.target.value) })} value={filter.year ?? ""}>
-                <option value="">All years</option>
-                {[...new Set([...highlightYears, ...(filter.year !== null ? [filter.year] : [])])].sort((a, b) => b - a).map((year) => <option key={year} value={year}>{year}</option>)}
-              </select>
-              <select aria-label="Month" className={styles.select} onChange={(event) => changeFilter({ ...filter, month: event.target.value === "" ? null : Number(event.target.value) })} value={filter.month ?? ""}>
-                <option value="">All months</option>
-                {Array.from({ length: 12 }, (_, i) => <option key={i} value={i + 1}>{monthName(i + 1)}</option>)}
-              </select>
+              <PeriodDropdown
+                label="Year"
+                onChange={(value) => changeFilter({ ...filter, year: value === "" ? null : Number(value) })}
+                options={[{ value: "", label: "All years" }, ...[...new Set([...highlightYears, ...(filter.year !== null ? [filter.year] : [])])].sort((a, b) => b - a).map((year) => ({ value: String(year), label: String(year) }))]}
+                value={filter.year === null ? "" : String(filter.year)}
+              />
+              <PeriodDropdown
+                label="Month"
+                onChange={(value) => changeFilter({ ...filter, month: value === "" ? null : Number(value) })}
+                options={[{ value: "", label: "All months" }, ...MONTH_OPTIONS]}
+                value={filter.month === null ? "" : String(filter.month)}
+              />
             </>
           )}
         </div>
