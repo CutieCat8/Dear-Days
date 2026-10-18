@@ -38,9 +38,9 @@ const script = Caveat({ subsets: ["latin"], variable: "--font-script", display: 
 
 // Positions are percentages of the left panel so the stack keeps its shape at any size; the frames bleed off the right edge on purpose.
 const POLAROIDS = [
-  { src: "/mock/museum/photo-02.jpg", caption: null, className: "-top-[14%] -right-[2%] h-[52%] w-[36%] rotate-[6deg]", photo: "h-full" },
-  { src: "/mock/museum/photo-04.jpg", caption: null, className: "top-[34%] right-[1%] w-[31%] -rotate-[3.5deg]", photo: "aspect-square" },
-  { src: "/mock/museum/photo-06.jpg", caption: "Different days, same happiness ♡", className: "top-[66%] -right-[1%] w-[32%] rotate-[4deg]", photo: "aspect-[3/2]" },
+  { src: "/auth/login1.jpg", caption: null, className: "-top-[14%] -right-[2%] h-[52%] w-[36%] rotate-[6deg]", photo: "h-full" },
+  { src: "/auth/login2.jpg", caption: null, className: "top-[34%] right-[1%] w-[31%] -rotate-[3.5deg]", photo: "aspect-square" },
+  { src: "/auth/login3.jpg", caption: "Different days, same happiness ♡", className: "top-[66%] -right-[1%] w-[32%] rotate-[4deg]", photo: "aspect-[3/2]" },
 ] as const;
 
 export function AuthScreen({ mode, next = "/" }: AuthScreenProps) {
