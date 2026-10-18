@@ -5,6 +5,7 @@ import { useState, type FormEvent } from "react";
 
 import { dataMode } from "@/lib/data/config";
 import { updateMyAccount } from "@/lib/data/profile";
+import { blockIfDemo } from "@/lib/demo/client";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 type ProfileFormProps = { displayName: string; bio: string | null; email: string | null; username: string | null };
@@ -24,6 +25,7 @@ export function ProfileForm({ displayName: initialName, bio: initialBio, email, 
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setMessage(null);
+    if (await blockIfDemo()) return;
     setPending(true);
     // only send the username when it changed, so an untouched form never trips the uniqueness check
     const changedUsername = initialUsername !== null && username.trim().replace(/^@+/, "").toLowerCase() !== initialUsername ? username : undefined;

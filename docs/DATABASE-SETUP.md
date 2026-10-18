@@ -26,6 +26,9 @@ Local email confirmation is disabled (`supabase/config.toml`).
 - The DB stores storage paths only; the app creates 1-hour signed URLs. Those are not refreshed inside the open 3D scene.
 - `member_count` comes from the `room_summaries` view. Room `description` is not stored (not in the contract).
 
+## Demo account
+The sign-in page has a "Try the demo account" button (supabase mode). It signs in to `deardays-demo-2026@gmail.com` (username `deardaysdemo`) with the server-only env var `DEMO_ACCOUNT_PASSWORD`; set it in the host's env settings too. The account is view-only: the browser data source (`src/lib/data/browser.ts`), the profile form, photo upload and password form call `blockIfDemo()`, which shows the alert and skips the write. This is a UI-level guard, not a database rule.
+
 ## Tests
 - `npm run test:db`: Docker, Postgres 15 with auth/storage stubs; constraints, RLS, RPCs, concurrent joins.
 - `npm run test:integration`: needs `SUPABASE_URL` and `SUPABASE_ANON_KEY` of a LOCAL stack (refuses non-local hosts); owner/partner/third/outsider flows incl. signed URLs and Storage.

@@ -4,7 +4,9 @@ import { Caveat } from "next/font/google";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, type FormEvent } from "react";
+import { useActionState, useState, type FormEvent } from "react";
+
+import { signInAsDemo } from "@/app/(auth)/sign-in/actions";
 
 import { ArrowRightIcon, EyeIcon, LeafIcon, LockIcon, MailIcon } from "@/components/shared/icons";
 import { dataMode } from "@/lib/data/config";
@@ -52,6 +54,7 @@ export function AuthScreen({ mode, next = "/" }: AuthScreenProps) {
   const [notice, setNotice] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const hydrated = useHydrated();
+  const [demoState, demoAction, demoPending] = useActionState(signInAsDemo, { error: null });
 
   /** Where to go after signing in: the page the proxy redirected from, same-site paths only. */
   function nextPath() {
@@ -184,6 +187,14 @@ export function AuthScreen({ mode, next = "/" }: AuthScreenProps) {
             <span className="h-px flex-1 bg-[var(--color-border)]" /> or <span className="h-px flex-1 bg-[var(--color-border)]" />
           </div>
           <Link className="btn btn-secondary font-display w-full !text-base" href={next === "/" ? copy.altHref : `${copy.altHref}?next=${encodeURIComponent(next)}`}>{copy.altLabel}</Link>
+          {mode === "sign-in" && dataMode() === "supabase" ? (
+            <form action={demoAction} className="mt-5 text-center">
+              <input name="next" type="hidden" value={next} />
+              <p className="text-xs text-[var(--color-muted)]">Just looking around? Explore a diary full of memories.</p>
+              <button className="font-display mt-1.5 text-sm text-[var(--color-green-deep)] underline underline-offset-4 disabled:opacity-60" disabled={demoPending || !hydrated} type="submit">{demoPending ? "Opening demo…" : "Try the demo account"}</button>
+              {demoState.error ? <p className="mt-2 rounded-lg bg-[#f8e3e3] px-3 py-2 text-xs text-[#8a3a3a]" role="alert">{demoState.error}</p> : null}
+            </form>
+          ) : null}
         </div>
         <div className="hidden items-center justify-center gap-3 pb-2 text-[var(--color-green-deep)]/70 lg:flex">
           <LeafIcon className="size-8" />

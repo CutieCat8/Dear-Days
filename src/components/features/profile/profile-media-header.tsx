@@ -8,6 +8,7 @@ import { ProfileAvatar } from "@/components/shared/profile-avatar";
 import { DEFAULT_ROOM_COVER_IMAGE } from "@/components/shared/room-cover";
 import { dataMode } from "@/lib/data/config";
 import { saveProfileMedia, validateProfileMediaFile, type ProfileMediaKind } from "@/lib/data/profile-media";
+import { blockIfDemo } from "@/lib/demo/client";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 type ProfileMediaHeaderProps = {
@@ -38,6 +39,7 @@ export function ProfileMediaHeader(props: ProfileMediaHeaderProps) {
     const file = event.target.files?.[0];
     event.target.value = "";
     if (!file) return;
+    if (await blockIfDemo()) return;
     const validationError = validateProfileMediaFile(file);
     if (validationError) {
       setNotice({ kind: "error", text: validationError });
