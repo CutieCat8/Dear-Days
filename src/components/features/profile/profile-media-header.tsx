@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useRef, useState, type ChangeEvent } from "react";
 
+import { ImageCropper } from "@/components/features/profile/image-cropper";
 import { CameraIcon } from "@/components/shared/icons";
 import { ProfileAvatar } from "@/components/shared/profile-avatar";
 import { DEFAULT_ROOM_COVER_IMAGE } from "@/components/shared/room-cover";
@@ -34,6 +35,7 @@ export function ProfileMediaHeader(props: ProfileMediaHeaderProps) {
   const [cover, setCover] = useState({ path: props.coverPath, url: props.coverUrl });
   const [pending, setPending] = useState<ProfileMediaKind | null>(null);
   const [notice, setNotice] = useState<Notice>(null);
+  const [cropping, setCropping] = useState<{ kind: ProfileMediaKind; url: string } | null>(null);
 
   async function change(kind: ProfileMediaKind, event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -45,7 +47,17 @@ export function ProfileMediaHeader(props: ProfileMediaHeaderProps) {
       setNotice({ kind: "error", text: validationError });
       return;
     }
+    setNotice(null);
+    setCropping({ kind, url: URL.createObjectURL(file) }); // the person chooses which part to keep before anything is uploaded
+  }
 
+  function closeCropper() {
+    if (cropping) URL.revokeObjectURL(cropping.url);
+    setCropping(null);
+  }
+
+  async function upload(kind: ProfileMediaKind, file: File) {
+    closeCropper();
     const current = kind === "avatar" ? avatar : cover;
     const preview = URL.createObjectURL(file);
     if (kind === "avatar") setAvatar({ ...current, url: preview });
@@ -122,6 +134,7 @@ export function ProfileMediaHeader(props: ProfileMediaHeaderProps) {
       </div>
       {notice ? <p className={`mx-2 mt-3 rounded-lg px-3 py-2 text-xs sm:mx-8 ${notice.kind === "ok" ? "bg-[var(--color-sage)] text-[var(--color-green-deep)]" : "bg-[#f8e3e3] text-[#8a3a3a]"}`} role={notice.kind === "ok" ? "status" : "alert"}>{notice.text}</p> : null}
       {demo ? <p className="mx-2 mt-2 text-xs text-[var(--color-muted)] sm:mx-8">Demo mode: profile photos are preview-only and cannot be uploaded.</p> : null}
+      {cropping ? <ImageCropper kind={cropping.kind} onCancel={closeCropper} onConfirm={(cropped) => void upload(cropping.kind, cropped)} url={cropping.url} /> : null}
     </header>
   );
 }
