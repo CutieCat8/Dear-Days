@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 
 import { AppShell } from "@/components/layout/app-shell";
+import { DemoAlertHost } from "@/components/shared/demo-alert-host";
 import { getDataSource, getViewer } from "@/lib/data/server";
 
 export default async function AppLayout({ children }: { children: ReactNode }) {
@@ -11,6 +12,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
   return (
     <AppShell galleryHref={firstRoom ? `/rooms/${firstRoom.id}/gallery` : "/rooms"} userAvatarUrl={viewer?.avatar_url ?? null} userName={viewer?.display_name ?? "Guest"}>
       {children}
+      <DemoAlertHost />
     </AppShell>
   );
 }

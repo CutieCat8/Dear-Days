@@ -4,6 +4,7 @@ import { useState, type FormEvent } from "react";
 import { z } from "zod";
 
 import { dataMode } from "@/lib/data/config";
+import { blockIfDemo } from "@/lib/demo/client";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { useHydrated } from "@/lib/use-hydrated";
 
@@ -47,6 +48,7 @@ export function ChangePasswordForm({ email }: { email: string | null }) {
       return;
     }
     setErrors({});
+    if (await blockIfDemo()) return;
     setPending(true);
     try {
       const supabase = createSupabaseBrowserClient();

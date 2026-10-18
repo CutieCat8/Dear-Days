@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { usernameSchema } from "@/lib/contracts/schemas";
 import type { DataResult, Profile, RoomMemberView } from "@/lib/contracts/types";
+import { DEMO_COVER_URL, DEMO_EMAIL } from "@/lib/demo/constants";
 import type { Database } from "@/lib/supabase/database.types";
 
 import { fail, failFrom, ok } from "./result";
@@ -87,7 +88,8 @@ export async function getMyAccount(client: SupabaseClient<Database>): Promise<Da
     username: data.username ?? null,
     avatar_path: avatarPath,
     cover_path: coverPath,
-    cover_url: (coverPath && urls.get(coverPath)) || null,
+    // the shared demo account's cover ships with the app (public/demo), so it follows every deploy
+    cover_url: (coverPath && urls.get(coverPath)) || (!coverPath && user.email === DEMO_EMAIL ? DEMO_COVER_URL : null),
   });
 }
 

@@ -177,3 +177,7 @@ export function CopyIcon(props: IconProps) {
 export function MoreIcon(props: IconProps) {
   return <IconBase {...props}><circle cx="6" cy="12" fill="currentColor" r="1.4" /><circle cx="12" cy="12" fill="currentColor" r="1.4" /><circle cx="18" cy="12" fill="currentColor" r="1.4" /></IconBase>;
 }
+
+export function AlertCircleIcon(props: IconProps) {
+  return <IconBase {...props}><circle cx="12" cy="12" r="8.5" {...stroke} /><path d="M12 7.5v5M12 16h.01" {...stroke} /></IconBase>;
+}
